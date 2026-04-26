@@ -1,0 +1,32 @@
+{
+  "name": "telegram-game-platform",
+  "version": "1.0.0",
+  "main": "backend/src/server.js",
+  "scripts": {
+    "start": "node backend/src/server.js",
+    "bot": "node bot/bot.js",
+    "dev": "node backend/src/server.js",
+    "test": "node --test",
+    "lint": "node --check backend/src/server.js && node --check bot/bot.js && node --check frontend/app.js",
+    "smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/smoke.ps1",
+    "backup": "powershell -ExecutionPolicy Bypass -File ./scripts/backup.ps1"
+  },
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.0",
+    "redis": "^5.1.1",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1"
+  }
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Game Hub</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #1e1b4b, #0b1020 60%);
+      color: #e5e7eb;
+      margin: 0;
+      padding: 16px;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button, select {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    .muted { opacity: 0.85; font-size: 13px; }
+    #game {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    .game-cell {
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 150ms ease;
+    }
+    .game-cell.hit {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 0 0 2px rgba(34,197,94,0.5), 0 6px 16px rgba(34,197,94,0.25);
+    }
+    .game-cell.fail {
+      transform: translateY(1px);
+      box-shadow: 0 0 0 2px rgba(239,68,68,0.5), 0 4px 12px rgba(239,68,68,0.2);
+      opacity: 0.9;
+    }
+    #leaderboard > div {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #fxCanvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #toast {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      background: rgba(15,23,42,0.92);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 10px;
+      padding: 10px 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 160ms ease, transform 160ms ease;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #roundSummary {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(2,6,23,0.55);
+      display: none;
+    }
+    #roundSummary.show { display: block; }
+    body.theme-neon {
+      background: radial-gradient(circle at top, #0f172a, #020617 60%);
+    }
+    body.theme-neon .panel {
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.15), 0 0 24px rgba(56,189,248,0.08);
+    }
+    body.theme-match3 {
+      background: radial-gradient(circle at top, #3b0764, #1e1b4b 60%);
+    }
+    body.theme-match3 .panel {
+      box-shadow: 0 0 0 1px rgba(192,132,252,0.15), 0 0 24px rgba(192,132,252,0.08);
+    }
+    body.theme-ludo {
+      background: radial-gradient(circle at top, #0f3b2e, #052e2b 60%);
+    }
+    body.theme-ludo .panel {
+      box-shadow: 0 0 0 1px rgba(74,222,128,0.15), 0 0 24px rgba(74,222,128,0.08);
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2 id="catalogCount">Catalog: 0 games</h2>
+    <div class="row">
+      <label for="gameSelect">Flagships:</label>
+      <select id="gameSelect"></select>
+      <button id="playRoundBtn">Play Round</button>
+      <button id="submitScoreBtn">Submit Score</button>
+      <button id="submitDailyBtn">Submit Daily Challenge</button>
+    </div>
+    <p class="muted" id="objective"></p>
+    <h1 id='title'>Global Game Hub</h1>
+    <div class="row">
+      <div id="roundTimer">Round: 0s</div>
+      <div id="currentScore">Score: 0</div>
+      <div id="streak">Streak: 0</div>
+      <div id="combo">Combo: x1</div>
+    </div>
+    <div id="roundSummary"></div>
+  </div>
+
+  <div class="panel">
+    <h3>Gameplay Arena</h3>
+    <div id='game'></div>
+  </div>
+
+  <div class="panel">
+    <div id="wallet"></div>
+    <div class="row">
+      <button id="claimDailyBtn">Claim Daily Reward</button>
+      <div id="store"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Leaderboard</h2>
+    <div id='leaderboard'></div>
+    <h3>Daily Challenge Leaderboard</h3>
+    <div id='dailyLeaderboard'></div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src='app.js'></script>
+  <canvas id="fxCanvas"></canvas>
+  <div id="toast"></div>
+</body>
+</html>
