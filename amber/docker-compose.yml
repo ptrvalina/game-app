@@ -1,0 +1,11 @@
+services:
+  amber:
+    build: .
+    image: amber:local
+    ports:
+      - "8000:8000"
+    environment:
+      AMBER_LOG_LEVEL: INFO
+    # При необходимости: скопируйте .env.example в .env и раскомментируйте:
+    # env_file:
+    #   - .env

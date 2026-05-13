@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: amber
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    dockerfilePath: ./Dockerfile
+    autoDeployTrigger: commit
+    envVars:
+      - key: AMBER_ENV
+        value: staging
+      - key: AMBER_ENABLE_CONSOLE
+        value: "true"
+      - key: AMBER_ENABLE_DOCS
+        value: "true"
+      - key: AMBER_STRICT_ROUTING
+        value: "true"
+      - key: AMBER_STRICT_FIAT_GUARD
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

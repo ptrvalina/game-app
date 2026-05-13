@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amber — консоль</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/amber.css" />
+  </head>
+  <body>
+    <div class="loading-overlay" id="loading" aria-hidden="true">
+      <div class="spinner" role="status" aria-label="Загрузка"></div>
+    </div>
+
+    <header class="site-header">
+      <div class="brand">
+        <h1>Amber</h1>
+        <span>AI Compliance Copilot · консоль</span>
+      </div>
+      <div class="header-actions">
+        <span class="badge">stateless</span>
+        <a href="/docs" target="_blank" rel="noopener">OpenAPI</a>
+        <a href="/health" target="_blank" rel="noopener">Health</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel" aria-labelledby="h-input">
+        <div class="panel-head">
+          <h2 id="h-input">Запрос</h2>
+        </div>
+        <div class="panel-body">
+          <label class="field">
+            API-ключ (если задан AMBER_API_KEY на сервере)
+            <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key" />
+          </label>
+          <label class="field">
+            JSON тела POST /api/v1/analyze
+            <textarea class="json-input" id="payload" spellcheck="false"></textarea>
+          </label>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" id="btnSend">Анализировать</button>
+            <button type="button" class="btn" id="btnSample">Пример fiat / RB</button>
+            <button type="button" class="btn" id="btnClear">Очистить вывод</button>
+          </div>
+          <div class="alert" id="errorBox" role="alert"></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-out">
+        <div class="panel-head">
+          <h2 id="h-out">Результат</h2>
+          <span class="score-pill" id="scorePill" hidden>anomaly —</span>
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="overview" role="tab">Обзор</button>
+          <button type="button" class="tab" data-tab="router" role="tab">Router</button>
+          <button type="button" class="tab" data-tab="analyst" role="tab">Analyst</button>
+          <button type="button" class="tab" data-tab="sar" role="tab">SAR</button>
+          <button type="button" class="tab" data-tab="raw" role="tab">JSON</button>
+        </div>
+        <div class="tab-panel active" data-panel="overview" role="tabpanel">
+          <div class="meta-grid" id="overviewMeta"></div>
+          <p class="pre-wrap" id="overviewText"></p>
+        </div>
+        <div class="tab-panel" data-panel="router" role="tabpanel">
+          <pre class="pre-wrap" id="outRouter"></pre>
+        </div>
+        <div class="tab-panel" data-panel="analyst" role="tabpanel">
+          <pre class="pre-wrap" id="outAnalyst"></pre>
+        </div>
+        <div class="tab-panel" data-panel="sar" role="tabpanel">
+          <pre class="pre-wrap" id="outSar"></pre>
+        </div>
+        <div class="tab-panel" data-panel="raw" role="tabpanel">
+          <pre class="pre-wrap" id="outRaw"></pre>
+        </div>
+        <p class="empty-hint" id="emptyHint">Ответ появится здесь после запроса.</p>
+      </section>
+    </main>
+
+    <script src="/static/console.js"></script>
+  </body>
+</html>
