@@ -36,12 +36,12 @@
   };
 
   const DEMO_CASES = [
-    { id: "fiat-structuring", title: "Fiat structuring", mode: "fiat", jurisdiction: "EU", file: "/demo/fiat_structuring.csv", description: "Repeated similar incoming amounts under threshold bands." },
-    { id: "crypto-layering", title: "Crypto layering", mode: "crypto", jurisdiction: "EU", file: "/demo/crypto_layering.csv", description: "Exchange and routing activity with crypto-focused signals." },
-    { id: "cross-transition", title: "Cross-border transition", mode: "cross", jurisdiction: "EU", file: "/demo/cross_border_case.csv", description: "Fast fiat-to-crypto transition cluster." },
-    { id: "dormant-reactivation", title: "Dormant reactivation", mode: "fiat", jurisdiction: "BY", file: "/demo/dormant_reactivation.csv", description: "Long inactivity gap followed by renewed activity." },
-    { id: "salary-mismatch", title: "Salary mismatch", mode: "fiat", jurisdiction: "BY", file: "/demo/salary_mismatch.csv", description: "Declared profile conflicts with observed inflow patterns." },
-    { id: "exchange-hopping", title: "Exchange hopping", mode: "crypto", jurisdiction: "EU", file: "/demo/exchange_hopping.csv", description: "Multiple exchange-like counterparties in a short period." },
+    { id: "fiat-structuring", title: "Фиатное дробление", mode: "fiat", jurisdiction: "EU", file: "/demo/fiat_structuring.csv", description: "Серия близких входящих сумм под threshold band." },
+    { id: "crypto-layering", title: "Крипто-layering", mode: "crypto", jurisdiction: "EU", file: "/demo/crypto_layering.csv", description: "Крипто-маршрутизация и exchange-like активность с детерминированными сигналами." },
+    { id: "cross-transition", title: "Cross-border transition", mode: "cross", jurisdiction: "EU", file: "/demo/cross_border_case.csv", description: "Быстрый fiat-to-crypto переход в коротком окне." },
+    { id: "dormant-reactivation", title: "Реактивация спящего профиля", mode: "fiat", jurisdiction: "BY", file: "/demo/dormant_reactivation.csv", description: "Долгий период без активности и резкое возобновление." },
+    { id: "salary-mismatch", title: "Несоответствие зарплатному профилю", mode: "fiat", jurisdiction: "BY", file: "/demo/salary_mismatch.csv", description: "Заявленный профиль не совпадает с наблюдаемыми притоками." },
+    { id: "exchange-hopping", title: "Exchange hopping", mode: "crypto", jurisdiction: "EU", file: "/demo/exchange_hopping.csv", description: "Несколько exchange-like контрагентов за короткий период." },
   ];
 
   const STORAGE_KEY = "amber_console_api_key";
@@ -61,6 +61,7 @@
   const demoModeBadge = $("demoModeBadge");
   const copySarStatus = $("copySarStatus");
   const bundleStatus = $("bundleStatus");
+  const pilotClientCopyStatus = $("pilotClientCopyStatus");
 
   const mappingInputs = {
     timestamp: $("mapTimestamp"),
@@ -200,7 +201,7 @@
     try {
       json = JSON.parse(text);
     } catch {
-      throw new Error("Response is not JSON: " + text.slice(0, 200));
+      throw new Error("Ответ не JSON: " + text.slice(0, 200));
     }
     if (!res.ok) {
       const msg = json.error?.message || json.detail || res.statusText;
@@ -230,16 +231,16 @@
       card.appendChild(makeEl("strong", "", item.title));
       card.appendChild(makeEl("p", "hint", item.description));
       const buttonRow = makeEl("div", "btn-row");
-      const previewBtn = makeEl("button", "btn btn-small", "Preview demo");
+      const previewBtn = makeEl("button", "btn btn-small", "Открыть демо");
       previewBtn.type = "button";
       previewBtn.addEventListener("click", () => previewDemoCase(item));
-      const analyzeBtn = makeEl("button", "btn btn-small", "Analyze demo");
+      const analyzeBtn = makeEl("button", "btn btn-small", "Анализировать демо");
       analyzeBtn.type = "button";
       analyzeBtn.addEventListener("click", async () => {
         await previewDemoCase(item);
         await analyzePreview();
       });
-      const link = makeEl("a", "", "Download CSV");
+      const link = makeEl("a", "", "Скачать CSV");
       link.href = item.file;
       link.setAttribute("download", "");
       buttonRow.append(previewBtn, analyzeBtn, link);
@@ -294,7 +295,7 @@
   function renderPreviewTable(host, rows) {
     clearNode(host);
     if (!rows.length) {
-      host.textContent = "No rows to display.";
+      host.textContent = "Нет строк для отображения.";
       return;
     }
     const table = document.createElement("table");
@@ -302,7 +303,7 @@
     const keys = Object.keys(rows[0].values || {});
     const thead = document.createElement("thead");
     const htr = document.createElement("tr");
-    ["row", "status"].concat(keys).concat(["issue"]).forEach((key) => htr.appendChild(makeEl("th", "", key)));
+    ["строка", "статус"].concat(keys).concat(["ошибка"]).forEach((key) => htr.appendChild(makeEl("th", "", key)));
     thead.appendChild(htr);
     table.appendChild(thead);
     const tbody = document.createElement("tbody");
@@ -322,7 +323,7 @@
   async function previewCsvFromInput() {
     const fileInput = $("csvFile");
     if (!fileInput.files || !fileInput.files[0]) {
-      showError("Select a CSV file first.");
+      showError("Сначала выберите CSV-файл.");
       return;
     }
     await requestCsvPreview({ blob: fileInput.files[0], filename: fileInput.files[0].name });
@@ -330,7 +331,7 @@
 
   async function analyzePreview() {
     if (!lastIngest || !lastIngest.normalized_request) {
-      showError("Preview a CSV first.");
+      showError("Сначала выполните предпросмотр CSV.");
       return;
     }
     await analyzeRequest(lastIngest.normalized_request);
@@ -361,19 +362,19 @@
       const body = parsePayload();
       await analyzeRequest(body);
     } catch (err) {
-      showError("Invalid JSON: " + err.message);
+      showError("Некорректный JSON: " + err.message);
     }
   }
 
   function renderChips(data) {
     clearNode(chips);
-    ["mode: " + data.mode, "jurisdiction: " + data.jurisdiction, "llm: " + data.meta.llm_used].forEach((label) => {
+    ["режим: " + data.mode, "юрисдикция: " + data.jurisdiction, "llm: " + data.meta.llm_used].forEach((label) => {
       chips.appendChild(makeEl("span", "chip", label));
     });
     if (data.meta.degraded_mode) chips.appendChild(makeEl("span", "chip chip-warn", "DEGRADED"));
     if (data.meta.emergency_mode) chips.appendChild(makeEl("span", "chip chip-danger", "EMERGENCY"));
-    if (data.meta.fallback_used) chips.appendChild(makeEl("span", "chip", "provider fallback"));
-    if (data.meta.operating_reason) chips.appendChild(makeEl("span", "chip", "reason: " + data.meta.operating_reason));
+    if (data.meta.fallback_used) chips.appendChild(makeEl("span", "chip", "fallback провайдера"));
+    if (data.meta.operating_reason) chips.appendChild(makeEl("span", "chip", "причина: " + data.meta.operating_reason));
   }
 
   function renderMetaGrid(data) {
@@ -399,8 +400,8 @@
   function renderOverviewExplainability(data) {
     $("whyFlagged").textContent = [
       "anomaly_score=" + data.anomaly.anomaly_score,
-      "categories=" + (data.anomaly.categories || []).join(", "),
-      "reasons:",
+      "категории=" + (data.anomaly.categories || []).join(", "),
+      "причины:",
       (data.anomaly.reasons || []).map((item) => "- " + maskText(item)).join("\n"),
     ].join("\n");
     $("overviewConfidence").textContent = data.meta.confidence_validation
@@ -409,23 +410,23 @@
           "reasons=" + (data.meta.confidence_validation.reasons || []).join(", "),
           data.meta.confidence_validation.explanation || "",
         ].join("\n")
-      : "No confidence calibration details.";
+      : "Нет подробностей по confidence calibration.";
     $("validatorWhy").textContent = data.meta.policy_failures && data.meta.policy_failures.length
       ? data.meta.policy_failures.join("\n")
-      : "No validator downgrade issues.";
+      : "Validator downgrade issues отсутствуют.";
     const emergencyReasons = (data.meta.stage_traces || [])
       .filter((trace) => trace.error_code || trace.status === "emergency")
       .map((trace) => `${trace.stage}: ${trace.error_code || trace.status}`);
     $("emergencyWhy").textContent = emergencyReasons.length
       ? emergencyReasons.join("\n")
-      : (data.meta.operating_reason || "No emergency trigger.");
+      : (data.meta.operating_reason || "Emergency trigger отсутствует.");
     $("overviewText").textContent = [
       maskText(data.meta.review_notice || ""),
       "",
       maskText(data.analyst.risk_summary || ""),
       "",
-      "Reviewer: " + (data.meta.reviewed_by || "n/a"),
-      "Notes: " + maskText(data.meta.review_notes || "No analyst notes."),
+      "Проверил: " + (data.meta.reviewed_by || "n/a"),
+      "Заметки: " + maskText(data.meta.review_notes || "Заметки аналитика отсутствуют."),
     ].join("\n");
   }
 
@@ -458,20 +459,20 @@
     clearNode(host);
     const rows = sortedEvidence(data);
     if (!rows.length) {
-      host.textContent = "No deterministic evidence.";
+      host.textContent = "Нет детерминированного evidence.";
       return;
     }
     const table = document.createElement("table");
     table.className = "ev-grid";
     const columns = [
-      ["code", "code"],
-      ["category", "category"],
-      ["contribution", "weight"],
-      ["threshold_value", "threshold"],
+      ["code", "код"],
+      ["category", "категория"],
+      ["contribution", "вес"],
+      ["threshold_value", "порог"],
       ["baseline_value", "baseline"],
-      ["observed_value", "observed"],
+      ["observed_value", "наблюдение"],
       ["tx_refs", "tx refs"],
-      ["label", "label"],
+      ["label", "описание"],
     ];
     const thead = document.createElement("thead");
     const htr = document.createElement("tr");
@@ -535,14 +536,14 @@
     clearNode(txHost);
     clearNode(relatedHost);
     if (!evidence) {
-      txHost.textContent = "Select evidence to inspect related transactions.";
+      txHost.textContent = "Выберите evidence, чтобы посмотреть связанные транзакции.";
       return;
     }
     const map = transactionMap();
     const refs = evidence.tx_refs || [];
     txHost.appendChild(makeEl("div", "hint", `Evidence: ${evidence.code} / ${evidence.category}`));
     if (!refs.length) {
-      txHost.appendChild(makeEl("div", "", "No tx references attached."));
+      txHost.appendChild(makeEl("div", "", "Для этого evidence нет привязанных tx references."));
       return;
     }
     const txList = refs.map((ref) => ({ ref, tx: map[ref] })).filter((item) => item.tx);
@@ -592,7 +593,7 @@
     clearNode(host);
     const traces = (data.meta && data.meta.stage_traces) || [];
     if (!traces.length) {
-      host.textContent = "No traces.";
+      host.textContent = "Нет трасс.";
       return;
     }
     traces.forEach((trace) => {
@@ -649,13 +650,13 @@
     scorePill.hidden = true;
     severityPill.hidden = true;
     $("overviewMeta").textContent = "";
-    $("whyFlagged").textContent = "Replay does not rebuild analyst workspace. Use hash checks and drift report.";
+    $("whyFlagged").textContent = "Replay не пересобирает analyst workspace. Используйте hash checks и drift report.";
     $("overviewConfidence").textContent = "";
     $("validatorWhy").textContent = JSON.stringify(data.validator_summary || {}, null, 2);
-    $("emergencyWhy").textContent = data.drift_detected ? "Bundle mismatch or tamper detected." : "Bundle integrity verified.";
+    $("emergencyWhy").textContent = data.drift_detected ? "Обнаружен tamper или mismatch bundle." : "Целостность bundle подтверждена.";
     $("overviewText").textContent = fmt({ request_id: data.request_id, hash_checks: data.hash_checks, drift_report: data.drift_report });
-    $("evidenceTable").textContent = "Replay mode: inspect drift report in JSON / overview.";
-    $("txDrilldown").textContent = "Replay mode: no transaction drilldown loaded.";
+    $("evidenceTable").textContent = "Replay mode: смотрите drift report в JSON / обзор.";
+    $("txDrilldown").textContent = "Replay mode: transaction drilldown не загружен.";
     $("txRelated").textContent = "";
     $("traceContainer").textContent = fmt(data.hash_checks || []);
     $("outRouter").textContent = "";
@@ -663,20 +664,20 @@
     $("sarStructured").textContent = "";
     $("outSar").textContent = "";
     $("outRaw").textContent = fmt(data);
-    bundleStatus.textContent = data.drift_detected ? "Replay detected tamper or deterministic drift." : "Replay verified signed bundle.";
+    bundleStatus.textContent = data.drift_detected ? "Replay обнаружил tamper или deterministic drift." : "Replay подтвердил signed bundle.";
     activateTab("overview");
   }
 
   async function exportBundle() {
     if (!lastResponse) {
-      showError("Analyze a case first.");
+      showError("Сначала выполните анализ кейса.");
       return;
     }
     let sourceRequest;
     try {
       sourceRequest = parsePayload();
     } catch (err) {
-      showError("Cannot read normalized request: " + err.message);
+      showError("Не удалось прочитать normalized request: " + err.message);
       return;
     }
     const analysis = applyReviewState(JSON.parse(JSON.stringify(lastResponse)));
@@ -691,9 +692,9 @@
         throw new Error((await res.text()).slice(0, 200));
       }
       await downloadResponse(res, "amber-case.zip");
-      bundleStatus.textContent = "Signed case bundle exported.";
+      bundleStatus.textContent = "Signed case bundle экспортирован.";
     } catch (err) {
-      showError("Bundle export failed: " + (err.message || String(err)));
+      showError("Ошибка экспорта bundle: " + (err.message || String(err)));
     } finally {
       setLoading(false);
     }
@@ -701,14 +702,14 @@
 
   async function exportSar(format) {
     if (!lastResponse) {
-      showError("Analyze a case first.");
+      showError("Сначала выполните анализ кейса.");
       return;
     }
     let sourceRequest;
     try {
       sourceRequest = parsePayload();
     } catch (err) {
-      showError("Cannot read normalized request: " + err.message);
+      showError("Не удалось прочитать normalized request: " + err.message);
       return;
     }
     const analysis = applyReviewState(JSON.parse(JSON.stringify(lastResponse)));
@@ -723,9 +724,9 @@
         throw new Error((await res.text()).slice(0, 200));
       }
       await downloadResponse(res, `amber-sar.${format === "markdown" ? "md" : format}`);
-      bundleStatus.textContent = "SAR exported as " + format + ".";
+      bundleStatus.textContent = "SAR экспортирован в формате " + format + ".";
     } catch (err) {
-      showError("SAR export failed: " + (err.message || String(err)));
+      showError("Ошибка экспорта SAR: " + (err.message || String(err)));
     } finally {
       setLoading(false);
     }
@@ -748,7 +749,7 @@
   async function replayBundle() {
     const fileInput = $("replayBundleFile");
     if (!fileInput.files || !fileInput.files[0]) {
-      showError("Choose a replay bundle first.");
+      showError("Сначала выберите replay bundle.");
       return;
     }
     const fd = new FormData();
@@ -767,14 +768,26 @@
 
   async function copySar() {
     if (!lastResponse || !lastResponse.reporter || !lastResponse.reporter.sar_body) {
-      copySarStatus.textContent = "No SAR body.";
+      copySarStatus.textContent = "SAR body отсутствует.";
       return;
     }
     try {
       await navigator.clipboard.writeText(lastResponse.reporter.sar_body);
-      copySarStatus.textContent = "Copied.";
+      copySarStatus.textContent = "Скопировано.";
     } catch {
-      copySarStatus.textContent = "Clipboard unavailable.";
+      copySarStatus.textContent = "Clipboard недоступен.";
+    }
+  }
+
+  async function copyPilotClientText() {
+    const source = $("pilotClientText");
+    if (!source) return;
+    pilotClientCopyStatus.textContent = "";
+    try {
+      await navigator.clipboard.writeText(source.textContent || "");
+      pilotClientCopyStatus.textContent = "Текст для пилотных клиентов скопирован.";
+    } catch {
+      pilotClientCopyStatus.textContent = "Clipboard недоступен.";
     }
   }
 
@@ -796,6 +809,7 @@
     emptyHint.style.display = "block";
     copySarStatus.textContent = "";
     bundleStatus.textContent = "";
+    if (pilotClientCopyStatus) pilotClientCopyStatus.textContent = "";
     showError("");
   }
 
@@ -808,6 +822,7 @@
   $("btnExportSarDocx").addEventListener("click", () => exportSar("docx"));
   $("btnReplayBundle").addEventListener("click", replayBundle);
   $("btnCopySar").addEventListener("click", copySar);
+  $("btnCopyPilotText").addEventListener("click", copyPilotClientText);
   $("btnSample").addEventListener("click", () => {
     payloadEl.value = JSON.stringify(SAMPLE, null, 2);
     lastSourceRequest = SAMPLE;

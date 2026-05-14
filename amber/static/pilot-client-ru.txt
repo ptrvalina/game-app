@@ -1,0 +1,26 @@
+Amber — supervised compliance console для пилотного тестирования AML / fraud сценариев.
+
+Назначение:
+Amber помогает compliance-команде быстро проверить синтетические или обезличенные кейсы, получить детерминированный anomaly score, explainable evidence, policy-validated narrative и replayable audit bundle.
+
+Что доступно в пилоте:
+- загрузка CSV и детерминированная нормализация
+- explainable anomaly scoring
+- evidence explorer и transaction drilldown
+- traces и replayable audit bundle
+- review workflow для аналитика
+- SAR memo в формате txt / markdown / docx
+
+Как использовать:
+1. Откройте демо-кейс или загрузите CSV-файл.
+2. Проверьте normalization report и список malformed rows.
+3. Запустите анализ и изучите evidence, traces и SAR memo.
+4. При необходимости зафиксируйте review status и выгрузите bundle.
+
+Важно:
+- Amber не выносит окончательных юридических выводов.
+- Все результаты требуют проверки аналитиком.
+- Для демо и пилотного контура рекомендуется использовать синтетические либо обезличенные данные.
+
+Публичная ссылка на сервис:
+https://amber-4k1g.onrender.com/console
