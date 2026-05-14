@@ -14,19 +14,45 @@ Jurisdiction = Literal["RU", "BY", "EU"]
 Direction = Literal["in", "out", "unknown"]
 AssetType = Literal["fiat", "crypto", "unknown"]
 StageState = Literal["live", "fallback", "emergency"]
+ValidatorStatus = Literal["not_run", "passed", "downgraded", "failed"]
+SeverityBand = Literal["low", "medium", "high", "critical"]
+ReviewStatus = Literal["pending", "analyst_confirmed", "analyst_rejected", "escalated"]
 AnomalyCategory = Literal[
     "amount_spike",
     "velocity_spike",
     "burst_activity",
     "new_counterparty",
+    "new_counterparty_burst",
     "off_hours",
+    "dormant_activation",
     "income_mismatch",
+    "salary_mismatch",
+    "mule_account_indicators",
+    "salary_pass_through",
+    "rapid_cash_out",
+    "funnel_account_behavior",
     "structuring",
     "smurfing",
     "circular_transfers",
     "cross_transition",
+    "cash_to_crypto_outflow",
+    "timing_correlation",
+    "transition_window",
+    "repeated_exchange_boundary_crossing",
+    "time_linked_transition_clusters",
+    "exchange_hopping",
+    "wallet_fan_out",
+    "fan_in",
+    "micro_splitting",
+    "bridge_behavior",
+    "bridge_sequencing",
+    "peel_chains",
+    "stablecoin_bursts",
     "crypto_keyword",
 ]
+
+CaseExportFormat = Literal["json", "markdown", "audit_bundle"]
+SarExportFormat = Literal["txt", "markdown", "docx"]
 
 
 def _canonical_jurisdiction(value: str) -> str:
@@ -204,17 +230,26 @@ class AnalystLLMResult(StrictBaseModel):
     regulatory_hooks: list[str] = Field(default_factory=list, max_length=12)
     recommendations: list[str] = Field(default_factory=list, max_length=12)
     new_pattern_hypothesis: str | None = Field(default=None, max_length=1200)
+    human_review_required: bool = True
 
 
 class ReporterLLMResult(StrictBaseModel):
     """Проект SAR / сообщения регулятору."""
 
     sar_title: str = Field(..., max_length=256)
-    sar_body: str = Field(..., max_length=20_000)
+    executive_summary: str = Field(default="", max_length=2000)
+    observed_behavior: list[str] = Field(default_factory=list, max_length=12)
+    anomaly_evidence: list[str] = Field(default_factory=list, max_length=20)
+    regulatory_context: list[str] = Field(default_factory=list, max_length=12)
+    recommended_actions: list[str] = Field(default_factory=list, max_length=12)
+    sar_body: str = Field(default="", max_length=20_000)
     sar_disclaimer: str = Field(
-        default="Сгенерировано Amber AI. Требуется проверка и подпись compliance-офицером.",
+        default=(
+            "Generated assistance only. Requires analyst verification and is not a final legal determination."
+        ),
         max_length=512,
     )
+    human_review_required: bool = True
 
 
 class EvidenceItem(StrictBaseModel):
@@ -256,11 +291,45 @@ class AnomalyBlock(StrictBaseModel):
     """Результат AnomalyDetector."""
 
     anomaly_score: int = Field(..., ge=0, le=100)
+    severity: SeverityBand = "low"
     confidence_score: int = Field(default=0, ge=0, le=100)
     categories: list[AnomalyCategory] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     evidence: list[EvidenceItem] = Field(default_factory=list)
     new_pattern_hypothesis: str | None = Field(default=None, max_length=1200)
+
+
+class ConfidenceValidation(StrictBaseModel):
+    """Детерминированная корректировка confidence."""
+
+    original_score: int = Field(..., ge=0, le=100)
+    effective_score: int = Field(..., ge=0, le=100)
+    cap: int = Field(..., ge=0, le=100)
+    reasons: list[str] = Field(default_factory=list, max_length=12)
+    history_depth: int = Field(default=0, ge=0, le=1_000_000)
+    evidence_count: int = Field(default=0, ge=0, le=100)
+    anomaly_agreement: int = Field(default=0, ge=0, le=100)
+    data_completeness: int = Field(default=100, ge=0, le=100)
+    malformed_input_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    explanation: str = Field(default="", max_length=1200)
+
+
+class ValidatorSummary(StrictBaseModel):
+    """Сводка deterministic policy enforcement по запросу."""
+
+    status: ValidatorStatus = "not_run"
+    issues_count: int = Field(default=0, ge=0, le=100)
+    failed_stages: list[str] = Field(default_factory=list, max_length=8)
+    remediation_action: str = Field(default="none", max_length=64)
+
+
+class ScoringProvenance(StrictBaseModel):
+    """Повторяемая provenance-информация о deterministic scoring."""
+
+    engine_version: str = Field(default="deterministic-v2", max_length=64)
+    evidence_codes: list[str] = Field(default_factory=list, max_length=32)
+    categories: list[AnomalyCategory] = Field(default_factory=list, max_length=16)
+    evidence_count: int = Field(default=0, ge=0, le=100)
 
 
 class StageTrace(StrictBaseModel):
@@ -271,11 +340,18 @@ class StageTrace(StrictBaseModel):
     provider: str = Field(default="none", max_length=32)
     model: str | None = Field(default=None, max_length=128)
     prompt_version: str | None = Field(default=None, max_length=64)
+    prompt_hash: str | None = Field(default=None, max_length=64)
+    payload_hash: str | None = Field(default=None, max_length=64)
     retries: int = Field(default=0, ge=0, le=10)
     latency_ms: int | None = Field(default=None, ge=0)
     prompt_chars: int | None = Field(default=None, ge=0)
     payload_truncated: bool = False
     error_code: str | None = Field(default=None, max_length=128)
+    validator_status: ValidatorStatus = "not_run"
+    issues_count: int = Field(default=0, ge=0, le=50)
+    validator_latency_ms: int | None = Field(default=None, ge=0)
+    policy_failures: list[str] = Field(default_factory=list, max_length=20)
+    remediation_action: str = Field(default="none", max_length=64)
 
 
 class MetaBlock(StrictBaseModel):
@@ -290,6 +366,25 @@ class MetaBlock(StrictBaseModel):
     latency_ms_router: int | None = None
     latency_ms_analyst: int | None = None
     latency_ms_reporter: int | None = None
+    validator_status: ValidatorStatus = "not_run"
+    issues_count: int = Field(default=0, ge=0, le=100)
+    validator_latency_ms: int | None = Field(default=None, ge=0)
+    policy_failures: list[str] = Field(default_factory=list, max_length=50)
+    remediation_action: str = Field(default="none", max_length=64)
+    policy_validation_failed_reason: str | None = Field(default=None, max_length=256)
+    confidence_validation: ConfidenceValidation | None = None
+    scoring_provenance: ScoringProvenance | None = None
+    validator_summary: ValidatorSummary | None = None
+    human_review_required: bool = True
+    review_notice: str = Field(
+        default="Requires analyst verification. Generated assistance only. Not a final legal determination.",
+        max_length=256,
+    )
+    operating_reason: str | None = Field(default=None, max_length=256)
+    review_status: ReviewStatus = "pending"
+    review_notes: str | None = Field(default=None, max_length=4000)
+    reviewed_by: str | None = Field(default=None, max_length=128)
+    reviewed_at: datetime | None = None
     stage_traces: list[StageTrace] = Field(default_factory=list)
 
 
@@ -306,3 +401,117 @@ class AnalyzeResponse(StrictBaseModel):
     analyst: AnalystLLMResult
     reporter: ReporterLLMResult
     meta: MetaBlock
+
+
+class CsvIngestIssue(StrictBaseModel):
+    """Нормализованная ошибка/предупреждение CSV-ingest."""
+
+    row_number: int | None = Field(default=None, ge=1)
+    column: str | None = Field(default=None, max_length=128)
+    code: str = Field(..., max_length=64)
+    message: str = Field(..., max_length=256)
+    raw_preview: str | None = Field(default=None, max_length=256)
+
+
+class CsvNormalizationReport(StrictBaseModel):
+    """Детерминированная сводка нормализации CSV."""
+
+    encoding_used: str = Field(default="utf-8", max_length=32)
+    delimiter_used: str = Field(default=",", max_length=4)
+    column_mapping: dict[str, str] = Field(default_factory=dict)
+    decimal_comma_rows: int = Field(default=0, ge=0)
+    debit_credit_normalized_rows: int = Field(default=0, ge=0)
+    currency_alias_rows: int = Field(default=0, ge=0)
+    missing_timestamp_rows: int = Field(default=0, ge=0)
+    malformed_rows: int = Field(default=0, ge=0)
+    rejected_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    malformed_threshold_exceeded: bool = False
+    override_applied_fields: list[str] = Field(default_factory=list, max_length=16)
+
+
+class CsvPreviewRow(StrictBaseModel):
+    """Безопасный preview одной строки для wizard UI."""
+
+    row_number: int = Field(..., ge=1)
+    status: Literal["parsed", "rejected"]
+    values: dict[str, str | None] = Field(default_factory=dict)
+    issue_code: str | None = Field(default=None, max_length=64)
+    issue_message: str | None = Field(default=None, max_length=256)
+
+
+class CsvIngestSummary(StrictBaseModel):
+    """Краткая сводка ingest-пайплайна CSV."""
+
+    filename: str | None = Field(default=None, max_length=256)
+    delimiter: str = Field(default=",", max_length=4)
+    encoding: str = Field(default="utf-8", max_length=32)
+    total_rows: int = Field(default=0, ge=0)
+    parsed_rows: int = Field(default=0, ge=0)
+    rejected_rows: int = Field(default=0, ge=0)
+    focus_rows: int = Field(default=0, ge=0)
+    historical_rows: int = Field(default=0, ge=0)
+
+
+class CsvIngestResponse(StrictBaseModel):
+    """Результат CSV onboarding перед отправкой в analyze."""
+
+    mode: Mode
+    jurisdiction: Jurisdiction
+    normalized_request: AnalyzeRequest
+    summary: CsvIngestSummary
+    issues: list[CsvIngestIssue] = Field(default_factory=list)
+    normalization_report: CsvNormalizationReport | None = None
+    available_columns: list[str] = Field(default_factory=list)
+    preview_rows: list[CsvPreviewRow] = Field(default_factory=list)
+
+
+class CaseExportRequest(StrictBaseModel):
+    """Запрос на экспорт case artifact без серверного хранения."""
+
+    source_request: AnalyzeRequest
+    analysis: AnalyzeResponse
+    format: CaseExportFormat = "json"
+
+
+class CaseExportArtifact(StrictBaseModel):
+    """Сериализованный case artifact для скачивания или supervised review."""
+
+    format: CaseExportFormat
+    filename: str = Field(..., max_length=256)
+    media_type: str = Field(..., max_length=128)
+    content: str
+    sha256: str = Field(..., max_length=128)
+
+
+class ReplayHashCheck(StrictBaseModel):
+    """Сверка хэшей файлов и вычисленных артефактов."""
+
+    name: str = Field(..., max_length=128)
+    expected_sha256: str | None = Field(default=None, max_length=128)
+    actual_sha256: str | None = Field(default=None, max_length=128)
+    matches: bool = False
+    algorithm: str = Field(default="sha256", max_length=32)
+
+
+class ReplayDiff(StrictBaseModel):
+    """Детерминированный drift item."""
+
+    section: str = Field(..., max_length=64)
+    field_name: str = Field(..., max_length=128)
+    expected: str | None = Field(default=None, max_length=512)
+    actual: str | None = Field(default=None, max_length=512)
+
+
+class ReplayResponse(StrictBaseModel):
+    """Результат forensic replay без вызова LLM."""
+
+    request_id: str | None = None
+    replay_status: Literal["match", "drift", "invalid_bundle"]
+    llm_called: bool = False
+    evidence_revalidated: bool = True
+    drift_detected: bool = False
+    hash_checks: list[ReplayHashCheck] = Field(default_factory=list)
+    drift_report: list[ReplayDiff] = Field(default_factory=list)
+    replayed_profiler: ProfilerSummary | None = None
+    replayed_anomaly: AnomalyBlock | None = None
+    validator_summary: ValidatorSummary | None = None

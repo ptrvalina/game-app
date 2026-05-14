@@ -1,0 +1,8 @@
+timestamp,amount,currency,direction,counterparty,channel,asset_type,narrative,id
+2026-05-10T08:00:00,8000.00,EUR,in,Walk-in branch ref 991,cash,fiat,Cash deposit branch A,x-01
+2026-05-10T09:30:00,7500.00,EUR,out,SEPA to OTC desk,sepa,fiat,Prefund OTC,x-02
+2026-05-10T10:15:00,1.10,BTC,out,cold-wallet-otc-1,onchain,crypto,BTC withdrawal after fiat out,x-03
+2026-05-11T08:05:00,7200.00,EUR,out,SEPA to OTC desk,sepa,fiat,Second leg,x-04
+2026-05-11T09:10:00,1.05,BTC,out,cold-wallet-otc-2,onchain,crypto,BTC withdrawal,x-05
+2026-05-12T08:05:00,7100.00,EUR,out,SEPA to OTC desk,sepa,fiat,Third leg,x-06
+2026-05-12T09:12:00,1.02,BTC,out,cold-wallet-otc-3,onchain,crypto,BTC withdrawal,x-07

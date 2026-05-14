@@ -19,6 +19,7 @@ class Profiler:
         """
         Возвращает dict с числовыми полями и списками для AnomalyDetector и промптов.
         """
+        txs = sorted(txs, key=lambda tx: (self._normalize_ts(tx.ts) is None, self._normalize_ts(tx.ts), tx.id or ""))
         if not txs:
             return {
                 "window_transactions": 0,

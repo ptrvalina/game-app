@@ -1,0 +1,15 @@
+timestamp,amount,currency,direction,counterparty,channel,asset_type,narrative,id
+2026-05-01T08:00:00,5000.00,EUR,in,SEPA On-ramp EU,sepa,fiat,Funding,cr-00
+2026-05-01T09:30:00,1.20,BTC,out,wallet-binance-deposit-1,exchange,crypto,Internal transfer to Binance,cr-01
+2026-05-01T10:05:00,0.95,BTC,out,wallet-kraken-deposit-2,exchange,crypto,Transfer to Kraken,cr-02
+2026-05-01T10:40:00,0.88,BTC,out,wallet-okx-deposit-3,exchange,crypto,Transfer to OKX,cr-03
+2026-05-01T11:10:00,120.00,USDT,out,wallet-fan-a,onchain,crypto,USDT micro out,cr-04
+2026-05-01T11:11:00,95.00,USDT,out,wallet-fan-b,onchain,crypto,USDT micro out,cr-05
+2026-05-01T11:12:00,110.00,USDT,out,wallet-fan-c,onchain,crypto,USDT micro out,cr-06
+2026-05-01T11:13:00,88.00,USDT,out,wallet-fan-d,onchain,crypto,USDT micro out,cr-07
+2026-05-01T11:14:00,102.00,USDT,out,wallet-fan-e,onchain,crypto,USDT micro out,cr-08
+2026-05-01T11:15:00,99.00,USDT,out,wallet-fan-f,onchain,crypto,USDT micro out,cr-09
+2026-05-01T11:16:00,105.00,USDT,out,wallet-fan-g,onchain,crypto,USDT micro out,cr-10
+2026-05-01T11:17:00,90.00,USDT,out,wallet-fan-h,onchain,crypto,USDT micro out,cr-11
+2026-05-02T09:00:00,0.40,BTC,out,bridge-relayer-1,onchain,crypto,bridge wormhole transfer,cr-12
+2026-05-02T09:30:00,0.38,BTC,out,bridge-relayer-2,onchain,crypto,layerzero route,cr-13

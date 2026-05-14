@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amber — AI Compliance Copilot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c1118;
+      --bg-slide: #121a24;
+      --surface: #1a2433;
+      --amber: #e8a54b;
+      --amber-dim: rgba(232, 165, 75, 0.15);
+      --text: #e8edf4;
+      --muted: #8b98a8;
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #5b8cff;
+      --danger: #f07178;
+      --success: #7fd962;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .deck {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slides {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: clamp(2rem, 5vw, 3.5rem) clamp(2rem, 6vw, 4rem);
+      background: radial-gradient(ellipse 120% 80% at 100% 0%, rgba(232, 165, 75, 0.08) 0%, transparent 55%),
+                  radial-gradient(ellipse 80% 60% at 0% 100%, rgba(91, 140, 255, 0.06) 0%, transparent 50%),
+                  var(--bg-slide);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 1;
+    }
+
+    .slide-title-block {
+      margin-bottom: 1.75rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .slide-number {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+
+    h2 {
+      font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      margin-top: 0.5rem;
+      font-weight: 400;
+    }
+
+    .meta {
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    ul {
+      list-style: none;
+      margin: 0.75rem 0;
+    }
+
+    ul.bullets li {
+      position: relative;
+      padding-left: 1.35rem;
+      margin-bottom: 0.65rem;
+      line-height: 1.45;
+      font-size: 1rem;
+    }
+
+    ul.bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.55em;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    .columns {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin-top: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.35rem;
+    }
+
+    .card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--amber);
+      margin-bottom: 0.65rem;
+      font-weight: 600;
+    }
+
+    .card p, .card li {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .diagram {
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(0.65rem, 1.4vw, 0.78rem);
+      line-height: 1.35;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1rem;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--muted);
+      margin: 1rem 0;
+    }
+
+    .diagram .hl {
+      color: var(--amber);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    .sar-box {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      color: #c5cdd8;
+    }
+
+    .sar-box .bar {
+      color: var(--amber);
+      margin-bottom: 0.75rem;
+    }
+
+    .toolbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1.5rem;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+
+    .toolbar button {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .toolbar button:hover {
+      background: var(--amber-dim);
+      border-color: rgba(232, 165, 75, 0.35);
+    }
+
+    .toolbar button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 2px;
+    }
+
+    .progress-wrap {
+      flex: 1;
+      max-width: 280px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--amber), #f4c46c);
+      transition: width 0.3s ease;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--amber-dim);
+      color: var(--amber);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+
+    .two-col-text {
+      columns: 2;
+      column-gap: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .two-col-text { columns: 1; }
+      .toolbar { flex-wrap: wrap; }
+      .progress-wrap { max-width: 100%; order: 3; width: 100%; }
+    }
+
+    @media print {
+      html, body { overflow: visible; height: auto; }
+      .deck { height: auto; }
+      .slides { overflow: visible; }
+      .slide {
+        position: relative;
+        opacity: 1 !important;
+        page-break-after: always;
+        min-height: 100vh;
+      }
+      .toolbar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <div class="slides" id="slides">
+      <!-- 1 -->
+      <section class="slide active" data-i="0">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 1 · Контекст</div>
+          <h1>Amber<br /><span style="font-weight:500;color:var(--muted);font-size:0.55em">AI Compliance Copilot</span></h1>
+          <p class="subtitle">Интеллектуальный помощник для compliance-офицера белорусского банка</p>
+          <p class="meta">Минск, 2026</p>
+        </div>
+        <h2>Банковская система Беларуси: новые вызовы</h2>
+        <ul class="bullets">
+          <li>С <strong>1 июля 2026</strong> года Нацбанк вводит единые стандарты антифрод-систем для всех банков: автоматический анализ транзакций и блокировка подозрительных операций.</li>
+          <li><strong>Криптобанки</strong> — Указ №19 уже действует. Фиат и крипта смешиваются на одном балансе. Классические AML-системы не видят эту связку.</li>
+          <li><strong>23 крипторезидента ПВТ</strong> работают легально и проводят фиатные платежи через банковскую систему.</li>
+          <li><strong>Рынок труда:</strong> квалифицированных AML-специалистов мало, объём алертов растёт.</li>
+        </ul>
+      </section>
+
+      <!-- 2 -->
+      <section class="slide" data-i="1">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 2 · Проблема</div>
+          <h1>Что не так с текущими AML-системами</h1>
+        </div>
+        <div class="columns">
+          <div class="card">
+            <h3>«Чёрный ящик»</h3>
+            <p>Система выдаёт флаг «Suspicious» — и всё. Compliance-офицер часами разбирается: что именно не так, какой паттерн, какая норма нарушена.</p>
+          </div>
+          <div class="card">
+            <h3>95% ложных срабатываний</h3>
+            <p>Жёсткие правила («сумма &gt; порога → флаг») дают лавину пустых алертов. Время уходит на мусор, а не на реальные риски.</p>
+          </div>
+          <div class="card">
+            <h3>Слепая зона фиат ↔ крипта</h3>
+            <p>Банковский AML видит фиат, крипто-сервисы — блокчейн. Связку не видит никто: фиат в банке и вывод крипты на санкционный кошелёк могут остаться без сквозного сигнала.</p>
+          </div>
+          <div class="card">
+            <h3>SAR вручную</h3>
+            <p>Каждый подозрительный отчёт пишется с нуля. 1,5–2 часа на документ. Сотни часов в месяц.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 -->
+      <section class="slide" data-i="2">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 3 · Решение</div>
+          <h1>Amber — AI-микросервис поверх вашей AML</h1>
+          <p class="subtitle">Amber не заменяет AML-систему. Он работает как интеллектуальный слой поверх неё.</p>
+        </div>
+        <div class="diagram"><span class="hl">  Ваша AML-система                Amber API
+  ┌──────────────────┐           ┌──────────────────┐
+  │  Алерт           │──────────▶│  POST /analyze   │
+  │  Экспорт (CSV)   │           └────────┬─────────┘
+  └──────────────────┘                    │
+                                          ▼
+                                ┌──────────────────┐
+                                │  XAI Engine      │
+                                │  ┌─────────────┐ │
+                                │  │ Profiler    │ │  профиль нормы
+                                │  │ AnomalyDet  │ │  новые схемы
+                                │  │ Analyst     │ │  паттерны + XAI
+                                │  │ Reporter    │ │  проект SAR
+                                │  └─────────────┘ │
+                                └────────┬─────────┘
+                                         │
+                                         ▼
+                                ┌──────────────────┐
+                                │  Ответ за 3–5 с  │
+                                │  ✅ Объяснение   │
+                                │  ✅ Проект SAR   │
+                                │  ✅ Аномалии     │
+                                └──────────────────┘</span></div>
+        <p style="color:var(--muted);font-size:1rem;">Подключение — <strong style="color:var(--text);">1 рабочий день</strong>. Без замены AML. Без доступа к вашим базам данных.</p>
+      </section>
+
+      <!-- 4 -->
+      <section class="slide" data-i="3">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 4 · Ценность</div>
+          <h1>Что Amber даёт банку</h1>
+          <p class="subtitle">Три ключевые ценности</p>
+        </div>
+        <div class="columns">
+          <div class="card">
+            <h3>1. Объяснимый ИИ (XAI)</h3>
+            <p>Amber не только ставит флаг. Он объясняет: какой паттерн, почему это риск, какая норма применима, что делать дальше.</p>
+          </div>
+          <div class="card">
+            <h3>2. Автоматическая генерация SAR</h3>
+            <p>Проект отчёта для ДФР на русском, в формате, принятом в РБ, со ссылками на статьи Декрета №8, Указа №19 и норм Нацбанка.</p>
+          </div>
+          <div class="card">
+            <h3>3. Аномалии вне правил</h3>
+            <p>Профиль нормального поведения клиента и отклонения, которых нет в стандартных справочниках AML-паттернов.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 -->
+      <section class="slide" data-i="4">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 5 · Режимы</div>
+          <h1>Три режима работы</h1>
+          <p class="subtitle">Один сервис — все задачи комплаенса</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Режим</th>
+              <th>Для чего</th>
+              <th>Что находит</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>fiat</strong></td>
+              <td>Классический банковский AML</td>
+              <td>Структурирование, смурфинг, круговые переводы, несоответствие профилю, аномалии</td>
+            </tr>
+            <tr>
+              <td><strong>crypto</strong></td>
+              <td>Анализ крипто-операций</td>
+              <td>Связь с санкционными адресами, миксерами, PEP</td>
+            </tr>
+            <tr>
+              <td><strong>cross</strong></td>
+              <td>Связка фиат ↔ крипта</td>
+              <td>Временные и суммовые корреляции между фиатными платежами и крипто-транзакциями</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin-top:1rem;color:var(--muted);font-size:0.95rem;"><strong style="color:var(--text);">Юрисдикции:</strong> РБ (Декрет №8, Указ №19, нормы Нацбанка), РФ (115-ФЗ), ЕС (5AMLD + MiCA)</p>
+      </section>
+
+      <!-- 6 -->
+      <section class="slide" data-i="5">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 6 · Детектор аномалий</div>
+          <h1>Флагманская функция</h1>
+          <p class="subtitle">Находит то, что пропускают правила</p>
+        </div>
+        <ul class="bullets">
+          <li><strong>Обычный AML:</strong> «Если сумма &gt; порога → флаг».</li>
+          <li><strong>Amber:</strong> «Я знаю, как клиент вёл себя последние 90 дней. Сейчас — нетипично. Вот почему.»</li>
+        </ul>
+        <h2 style="margin-top:1.25rem;font-size:1.1rem;">Как это работает</h2>
+        <ol style="margin-left:1.25rem;line-height:1.75;color:var(--muted);font-size:0.98rem;">
+          <li><strong style="color:var(--text);">Profiler</strong> строит статистический профиль нормы: средний чек, частота, контрагенты, география, время, дни недели.</li>
+          <li><strong style="color:var(--text);">AnomalyDetector</strong> сравнивает каждую новую транзакцию с нормой.</li>
+          <li>Отклонение → <strong style="color:var(--text);">anomaly_score</strong> 0–100 + объяснение.</li>
+        </ol>
+        <div class="sar-box" style="margin-top:1rem;font-size:0.78rem;">
+<span class="bar">═══════════════════════════════════════════════</span>
+⚠️ Anomaly Score: 65/100
+
+Причины отклонения:
+• Сумма на 189% выше среднего исторического максимума
+• 7 транзакций за день при норме до 4
+• Новый контрагент: ООО «Технопром»
+• Операция в нерабочее время (23:15)
+
+Гипотеза:
+«Нехарактерное дробление платежей новому контрагенту в нерабочее время.
+Рекомендуется: проверить ООО «Технопром» по ЕГРЮЛ и базам ФНС.»
+        </div>
+        <p style="margin-top:0.75rem;font-size:0.92rem;color:var(--muted);">Не требует машинного обучения — чистая статистика. Прозрачно и воспроизводимо.</p>
+      </section>
+
+      <!-- 7 -->
+      <section class="slide" data-i="6">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 7 · SAR</div>
+          <h1>Как выглядит SAR от Amber</h1>
+          <p class="subtitle">Готовый проект отчёта — офицер проверяет и подписывает</p>
+        </div>
+        <div class="sar-box">
+<span class="bar">═══════════════════════════════════════════════
+Сообщение о подозрительной операции № AMBER-2026-0506-001</span>
+
+1. Резюме
+Клиент с задекларированным доходом 1 000 BYN/мес последовательно
+внёс 17 650 BYN за 3 дня через транзакции по 5 800–5 950 BYN.
+Суммы близки к порогу, что указывает на structuring.
+
+2. Операции
+| Дата       | Сумма   | Тип      |
+|------------|---------|----------|
+| 29.04.2026 | 5 800   | Внесение |
+| 30.04.2026 | 5 900   | Внесение |
+| 02.05.2026 | 5 950   | Внесение |
+
+3. Паттерны
+• Structuring — дробление вкладов чуть ниже порога
+• Income mismatch — оборот в 5.8 раз выше дохода
+
+4. Применимые нормы
+• Декрет №8 «О цифровой экономике», ст. 7
+• Правила Нацбанка РБ о внутреннем контроле
+
+5. Рекомендация
+• Запросить документы о происхождении средств
+• При отказе — эскалация в ДФР
+
+⚠️ Сгенерировано Amber AI. Требуется проверка compliance-офицером.
+<span class="bar">═══════════════════════════════════════════════</span>
+        </div>
+      </section>
+
+      <!-- 8 -->
+      <section class="slide" data-i="7">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 8 · Архитектура</div>
+          <h1>Техническая архитектура</h1>
+          <p class="subtitle">Безопасность, масштабируемость, отказоустойчивость</p>
+        </div>
+        <div class="diagram"><span class="hl">┌──────────────────────────────────────────────────────┐
+│                FASTAPI (main.py)                     │
+│  POST /analyze  ·  GET /health  ·  CORS              │
+└────────────────────┬─────────────────────────────────┘
+                     │
+┌────────────────────▼─────────────────────────────────┐
+│               XAI ENGINE                             │
+│  1. Profiler — строит норму (pandas, asyncio)       │
+│  2. AnomalyDetector — anomaly_score 0–100           │
+│  3. Router — режим и юрисдикция                     │
+│  4. Analyst — паттерны и объяснение риска           │
+│  5. Reporter — проект SAR                           │
+│  Все ответы LLM проходят Pydantic-валидацию         │
+└────────────────────┬─────────────────────────────────┘
+                     │
+┌────────────────────▼─────────────────────────────────┐
+│              LLM PROVIDER                            │
+│  GPT-4o (основной) ──▶ Claude (резервный)           │
+│  Недоступность обоих — Emergency Mode (шаблон)      │
+│  Zero retention: данные не для обучения             │
+└──────────────────────────────────────────────────────┘</span></div>
+        <ul class="bullets" style="font-size:0.95rem;">
+          <li><strong>Stateless</strong> — N экземпляров параллельно.</li>
+          <li>Данные не хранятся — обработали запрос и забыли.</li>
+          <li>Логи без ПДн — только технические метрики.</li>
+          <li>Деплой в контуре банка — Docker, одна команда на запуск.</li>
+        </ul>
+      </section>
+
+      <!-- 9 -->
+      <section class="slide" data-i="8">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 9 · Безопасность</div>
+          <h1>Безопасность и соответствие нормам</h1>
+          <p class="subtitle">Полное соответствие требованиям Нацбанка РБ</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Аспект</th>
+              <th>Как обеспечено</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Хранение данных</td>
+              <td>Отсутствует. Все данные — только в RAM на время обработки запроса</td>
+            </tr>
+            <tr>
+              <td>LLM API</td>
+              <td>Zero retention (OpenAI и Anthropic). Данные клиента не покидают ваш контур в читаемом виде</td>
+            </tr>
+            <tr>
+              <td>Логирование</td>
+              <td>Только технические метрики: latency, статус, токены. Без персональных данных</td>
+            </tr>
+            <tr>
+              <td>Инфраструктура</td>
+              <td>Развёртывание в вашем ЦОД или на сертифицированном хостинге (beCloud)</td>
+            </tr>
+            <tr>
+              <td>Отказоустойчивость</td>
+              <td>Два LLM-провайдера с fallback. При недоступности обоих — Emergency Mode</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 10 -->
+      <section class="slide" data-i="9">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 10 · Интеграция</div>
+          <h1>Интеграция — 1 день</h1>
+          <p class="subtitle">Никаких месяцев внедрения</p>
+        </div>
+        <div class="columns">
+          <div class="card">
+            <h3>Шаг 1</h3>
+            <p>Экспорт алерта из AML: CSV или JSON (два клика).</p>
+          </div>
+          <div class="card">
+            <h3>Шаг 2</h3>
+            <p>Загрузка в Amber: API-запрос или веб-форма.</p>
+          </div>
+          <div class="card">
+            <h3>Шаг 3</h3>
+            <p>Результат: объяснение риска, проект SAR, anomaly score + гипотеза, рекомендации.</p>
+          </div>
+        </div>
+        <p style="margin-top:1.25rem;font-size:1.05rem;">Время от алерта до готового SAR: <strong style="color:var(--amber);">3–5 секунд</strong>.</p>
+        <h2 style="margin-top:1.5rem;font-size:1rem;">Amber не требует</h2>
+        <ul class="bullets">
+          <li>Замены AML-системы</li>
+          <li>Доступа к базам данных банка</li>
+          <li>Длительного обучения сотрудников</li>
+          <li>Полугодового цикла внедрения</li>
+        </ul>
+      </section>
+
+      <!-- 11 -->
+      <section class="slide" data-i="10">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 11 · Почему сейчас</div>
+          <h1>Почему Amber — сейчас</h1>
+          <p class="subtitle">Четыре причины начать пилот</p>
+        </div>
+        <div class="columns">
+          <div class="card">
+            <h3>1. Регуляторное давление</h3>
+            <p>С 1 июля 2026 — единая антифрод-система с ИИ. Amber соответствует требованию автоматического анализа.</p>
+          </div>
+          <div class="card">
+            <h3>2. Крипто-трансформация</h3>
+            <p>Указ №19 и смешение фиата и крипты — без сквозного анализа банк в зоне повышенного риска.</p>
+          </div>
+          <div class="card">
+            <h3>3. Кадровый ресурс</h3>
+            <p>Amber усиливает офицера: в ~3 раза больше алертов на сотрудника, меньше рутины, выше качество.</p>
+          </div>
+          <div class="card">
+            <h3>4. Локальное решение</h3>
+            <p>Под белорусское регулирование. Международные вендоры не адаптированы под двойной надзор Нацбанка и ПВТ.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12 -->
+      <section class="slide" data-i="11">
+        <div class="slide-title-block">
+          <div class="slide-number">Слайд 12 · Пилот</div>
+          <h1>Пилотное предложение</h1>
+          <p class="subtitle">Как начать</p>
+        </div>
+        <div class="columns">
+          <div class="card">
+            <h3>Формат</h3>
+            <p>Бесплатный пилот на <strong style="color:var(--text);">50 анализов</strong></p>
+          </div>
+          <div class="card">
+            <h3>Срок</h3>
+            <p><strong style="color:var(--text);">2 недели</strong></p>
+          </div>
+          <div class="card">
+            <h3>От банка</h3>
+            <p>Обезличенные данные по 10–20 реальным алертам</p>
+          </div>
+        </div>
+        <h2 style="margin-top:1.25rem;font-size:1.05rem;">Банк получает</h2>
+        <ul class="bullets">
+          <li>Полный анализ каждого алерта (объяснение + SAR)</li>
+          <li>Сравнение: время расследования вручную vs с Amber</li>
+          <li>Отчёт о типах найденных паттернов</li>
+          <li>Рекомендацию по интеграции</li>
+        </ul>
+        <p style="margin-top:1rem;color:var(--muted);"><strong style="color:var(--text);">Результат пилота:</strong> решение о внедрении на основе реальных цифр по вашему банку.</p>
+      </section>
+
+      <!-- Appendix -->
+      <section class="slide" data-i="12">
+        <div class="slide-title-block">
+          <div class="slide-number">Приложение</div>
+          <h1>Технические детали</h1>
+        </div>
+        <div class="two-col-text" style="font-size:0.95rem;line-height:1.55;color:var(--muted);">
+          <p style="margin-bottom:1rem;"><strong style="color:var(--text);">API:</strong> REST, JSON<br />
+          <strong style="color:var(--text);">Протокол:</strong> HTTPS<br />
+          <strong style="color:var(--text);">Аутентификация:</strong> API-ключ<br />
+          <strong style="color:var(--text);">Формат данных:</strong> CSV / JSON<br />
+          <strong style="color:var(--text);">Время ответа:</strong> 3–5 с<br />
+          <strong style="color:var(--text);">Деплой:</strong> Docker, единый образ</p>
+          <p style="margin-bottom:0.75rem;"><strong style="color:var(--text);">Стек:</strong></p>
+          <ul class="bullets" style="margin-bottom:1rem;">
+            <li>Python 3.12, FastAPI</li>
+            <li>GPT-4o / Claude 3.5 Sonnet (LLM API)</li>
+            <li>LangChain (оркестрация промптов)</li>
+            <li>pandas (статистика)</li>
+            <li>Pydantic (валидация ответов)</li>
+          </ul>
+          <p><strong style="color:var(--text);">Инфраструктура банка:</strong> HTTPS к внешнему API <em>или</em> Docker-контейнер в контуре банка.</p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="toolbar">
+      <button type="button" id="prev" aria-label="Предыдущий слайд">← Назад</button>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="fill"></div></div>
+        <div class="hint" id="counter">1 / 13</div>
+      </div>
+      <button type="button" id="next" aria-label="Следующий слайд">Вперёд →</button>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+      var total = slides.length;
+      var idx = 0;
+      var fill = document.getElementById("fill");
+      var counter = document.getElementById("counter");
+
+      function show(i) {
+        idx = Math.max(0, Math.min(total - 1, i));
+        slides.forEach(function (s, j) {
+          s.classList.toggle("active", j === idx);
+        });
+        fill.style.width = ((idx + 1) / total * 100) + "%";
+        counter.textContent = (idx + 1) + " / " + total;
+      }
+
+      document.getElementById("prev").addEventListener("click", function () { show(idx - 1); });
+      document.getElementById("next").addEventListener("click", function () { show(idx + 1); });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+          e.preventDefault();
+          show(idx + 1);
+        } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+          e.preventDefault();
+          show(idx - 1);
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          show(0);
+        } else if (e.key === "End") {
+          e.preventDefault();
+          show(total - 1);
+        }
+      });
+
+      show(0);
+    })();
+  </script>
+</body>
+</html>

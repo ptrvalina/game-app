@@ -1,0 +1,6 @@
+date;sum;currency;debit_credit;counterparty;channel;asset_type;id;description
+01.03.2026 09:00;950,00;RUR;CR;Payroll LLC;bank;fiat;h1;salary
+01.04.2026 09:00;980,00;RUR;CR;Payroll LLC;bank;fiat;h2;salary
+01.05.2026 09:00;970,00;RUR;CR;Payroll LLC;bank;fiat;h3;salary
+10.05.2026 10:15;12000,00;RUR;CR;External Source A;bank;fiat;f1;large inflow
+10.05.2026 13:40;11850,00;RUR;DR;Broker Desk;bank;fiat;f2;outbound transfer

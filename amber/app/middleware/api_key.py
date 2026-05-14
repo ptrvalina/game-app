@@ -1,6 +1,8 @@
 """Опциональная защита API ключом (интеграции банка)."""
 from __future__ import annotations
 
+import hmac
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -14,13 +16,6 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
     _PUBLIC_PREFIXES = (
         "/health",
-        "/ready",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-        "/",
-        "/console",
-        "/static",
         "/favicon.ico",
         "/api/v1/health",
     )
@@ -31,7 +26,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if not expected:
             return await call_next(request)
         path = request.url.path
-        if path in self._PUBLIC_PREFIXES or any(path.startswith(p) for p in ("/static", "/docs", "/redoc")):
+        if path in self._PUBLIC_PREFIXES:
             return await call_next(request)
 
         key = request.headers.get("x-api-key") or request.headers.get("X-Api-Key")
@@ -39,7 +34,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             auth = request.headers.get("authorization") or ""
             if auth.lower().startswith("bearer "):
                 key = auth.split(" ", 1)[1].strip()
-        if key != expected:
+        if not key or not hmac.compare_digest(key, expected):
             rid = getattr(request.state, "request_id", None)
             response = JSONResponse(
                 status_code=401,

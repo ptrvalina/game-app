@@ -39,3 +39,74 @@ jobs:
       - run: npm run lint
       - run: npm audit --audit-level=high
       - run: npm test
+
+  amber:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: amber
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            amber/requirements.txt
+            amber/requirements-dev.txt
+      - name: Install Amber deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+          pip check
+      - name: Compile Amber
+        run: python -m compileall app
+      - name: Pytest
+        run: pytest tests -q --tb=short
+        env:
+          AMBER_API_KEY: ""
+          AMBER_ENV: test
+      - name: Build Amber Docker image
+        run: docker build -t amber-ci .
+      - name: Run Amber Docker smoke
+        run: |
+          docker run -d --rm --name amber-ci -p 8000:8000 -e AMBER_ENV=prod amber-ci
+          python - <<'PY'
+          import json
+          import time
+          import urllib.error
+          import urllib.request
+
+          payload = {
+              "mode": "fiat",
+              "jurisdiction": "BY",
+              "historical_transactions": [],
+              "focus_transactions": [{"amount": "10", "direction": "in", "asset_type": "fiat"}],
+          }
+
+          def get(url: str):
+              with urllib.request.urlopen(url, timeout=5) as resp:
+                  return resp.status, json.loads(resp.read().decode())
+
+          for _ in range(30):
+              try:
+                  status, body = get("http://127.0.0.1:8000/health")
+                  if status == 200 and body.get("status") == "ok":
+                      break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit("Amber container did not become healthy")
+
+          req = urllib.request.Request(
+              "http://127.0.0.1:8000/api/v1/analyze",
+              data=json.dumps(payload).encode(),
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=10) as resp:
+              body = json.loads(resp.read().decode())
+              assert resp.status == 200
+              assert "anomaly" in body and "reporter" in body
+          PY
+          docker stop amber-ci

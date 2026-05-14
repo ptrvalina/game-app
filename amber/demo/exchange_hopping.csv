@@ -1,0 +1,7 @@
+timestamp,amount,currency,direction,counterparty,channel,asset_type,id,narrative
+2026-05-01T08:00:00Z,0.10,BTC,out,binance-hot-wallet,exchange,crypto,x1,transfer
+2026-05-01T09:00:00Z,0.11,BTC,out,kraken-desk,exchange,crypto,x2,transfer
+2026-05-01T10:00:00Z,0.09,BTC,out,okx-bridge,exchange,crypto,x3,transfer
+2026-05-01T11:00:00Z,0.12,BTC,out,coinbase-prime,exchange,crypto,x4,transfer
+2026-05-01T12:00:00Z,0.08,BTC,out,bybit-account,exchange,crypto,x5,transfer
+2026-05-01T13:00:00Z,0.07,BTC,out,htx-desk,exchange,crypto,x6,transfer

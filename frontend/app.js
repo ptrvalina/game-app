@@ -1,8 +1,20 @@
 const API_BASE = window.location.origin + "/api";
 const tg = window.Telegram?.WebApp;
 const initData = tg?.initData || "";
+
+function initialGameFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const g = params.get("game");
+    if (["neon_snake", "match3_nova", "ludo_world"].includes(g)) return g;
+  } catch {
+    /* ignore */
+  }
+  return "neon_snake";
+}
+
 let score = 0;
-let currentGameId = "neon_snake";
+let currentGameId = initialGameFromUrl();
 let storeCatalog = [];
 let games = [];
 let currentConfig = null;

@@ -27,7 +27,18 @@ def test_ready(client: TestClient) -> None:
     data = r.json()
     assert data["status"] in {"ready", "degraded", "emergency-only"}
     assert "llm" in data
-    assert "providers" in data["llm"]
+    assert "usable_provider_count" in data["llm"]
+    assert "providers" not in data["llm"]
+    assert "runtime_guard" in data
+    assert "demo_mode" in data
+
+
+def test_telemetry(client: TestClient) -> None:
+    r = client.get("/telemetry")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert "telemetry" in data
 
 
 def test_console(client: TestClient) -> None:
@@ -69,6 +80,8 @@ def test_analyze_v1_minimal(client: TestClient) -> None:
     assert "sar_body" in data["reporter"]
     assert "meta" in data
     assert "stage_traces" in data["meta"]
+    assert data["meta"].get("human_review_required") is True
+    assert data["reporter"].get("human_review_required") is True
 
 
 def test_analyze_legacy_deprecated(client: TestClient) -> None:

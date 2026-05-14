@@ -3,7 +3,9 @@ FastAPI-приложение Amber: API v1, health, веб-консоль, middl
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -18,6 +20,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.v1.router import router as v1_router
 from app.core.config import get_settings
 from app.core.errors import build_error_response, sanitize_validation_errors
+from app.core.runtime import RuntimeGuard
+from app.core.telemetry import TelemetryStore
 from app.middleware.api_key import ApiKeyMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
@@ -26,6 +30,7 @@ from app.deps import get_engine
 from app.xai.engine import XAIEngine
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+DEMO_DIR = Path(__file__).resolve().parent.parent / "demo"
 SETTINGS = get_settings()
 
 
@@ -42,8 +47,12 @@ async def lifespan(app: FastAPI):
     _configure_logging(SETTINGS.log_level)
     app.state.settings = SETTINGS
     app.state.engine = XAIEngine(SETTINGS)
+    app.state.runtime_guard = RuntimeGuard(SETTINGS.max_concurrent_requests)
+    app.state.telemetry = TelemetryStore()
     logging.getLogger(__name__).info("Amber стартовал (engine готов)")
     yield
+    await app.state.runtime_guard.mark_shutting_down()
+    logging.getLogger(__name__).info("Amber останавливается")
 
 
 TAGS_METADATA = [
@@ -94,6 +103,24 @@ app.add_middleware(RequestIdMiddleware)
 app.include_router(v1_router, prefix="/api/v1")
 
 
+@app.middleware("http")
+async def request_limits(request: Request, call_next):
+    settings = getattr(request.app.state, "settings", None) or SETTINGS
+    content_length = request.headers.get("content-length")
+    if content_length and request.method in {"POST", "PUT", "PATCH"}:
+        try:
+            if int(content_length) > settings.max_request_bytes:
+                body = build_error_response(
+                    code="payload_too_large",
+                    message="Размер запроса превышает допустимый лимит.",
+                    request_id=getattr(request.state, "request_id", None),
+                )
+                return JSONResponse(status_code=413, content=body.model_dump(mode="json"))
+        except ValueError:
+            pass
+    return await call_next(request)
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     rid = getattr(request.state, "request_id", None)
@@ -109,9 +136,16 @@ async def validation_handler(request: Request, exc: RequestValidationError) -> J
 @app.exception_handler(StarletteHTTPException)
 async def http_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     rid = getattr(request.state, "request_id", None)
+    detail = exc.detail
+    if isinstance(detail, str):
+        message = detail
+    elif isinstance(detail, dict):
+        message = str(detail.get("message") or detail.get("detail") or "http_error")
+    else:
+        message = str(detail)
     body = build_error_response(
         code="http_error",
-        message=exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+        message=message[:512],
         request_id=rid,
     )
     return JSONResponse(status_code=exc.status_code, content=body.model_dump(mode="json"))
@@ -165,6 +199,9 @@ async def console(request: Request) -> Response:
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+if DEMO_DIR.is_dir():
+    app.mount("/demo", StaticFiles(directory=str(DEMO_DIR)), name="demo")
+
 
 @app.get("/health", tags=["Сервис"], summary="Liveness")
 async def health() -> dict:
@@ -175,24 +212,41 @@ async def health() -> dict:
 async def ready(request: Request) -> dict:
     s = getattr(request.app.state, "settings", None) or SETTINGS
     engine: XAIEngine | None = getattr(request.app.state, "engine", None)
+    guard = getattr(request.app.state, "runtime_guard", None)
+    telemetry = getattr(request.app.state, "telemetry", None)
     llm_status = engine.llm.health_snapshot() if engine else {}
-    configured_count = int(bool(s.openai_api_key)) + int(bool(s.anthropic_api_key))
-    if configured_count == 0:
+    configured_count = sum(1 for item in llm_status.values() if item.get("configured"))
+    usable_count = sum(
+        1 for item in llm_status.values() if item.get("configured") and not item.get("circuit_open")
+    )
+    if guard and guard.snapshot().get("shutting_down"):
+        status = "shutting-down"
+    elif configured_count == 0 or usable_count == 0:
         status = "emergency-only"
-    elif any(item.get("circuit_open") for item in llm_status.values()):
+    elif usable_count < configured_count:
         status = "degraded"
     else:
         status = "ready"
     return {
         "status": status,
-        "llm": {
-            "openai_configured": bool(s.openai_api_key),
-            "anthropic_configured": bool(s.anthropic_api_key),
-            "providers": llm_status,
-        },
+        "llm": {"configured_provider_count": configured_count, "usable_provider_count": usable_count},
         "api_key_required": bool(s.api_key),
         "console_enabled": s.console_enabled,
         "docs_enabled": s.docs_enabled,
+        "demo_mode": s.demo_mode,
+        "runtime_guard": guard.snapshot() if guard else {},
+        "telemetry_available": telemetry is not None,
+    }
+
+
+@app.get("/telemetry", tags=["Сервис"], summary="Lightweight telemetry")
+async def telemetry(request: Request) -> dict:
+    store = getattr(request.app.state, "telemetry", None)
+    guard = getattr(request.app.state, "runtime_guard", None)
+    return {
+        "status": "ok",
+        "runtime_guard": guard.snapshot() if guard else {},
+        "telemetry": store.snapshot() if store else {},
     }
 
 
@@ -207,4 +261,18 @@ async def ready(request: Request) -> dict:
 async def analyze_legacy(req: AnalyzeRequest, request: Request) -> AnalyzeResponse:
     engine: XAIEngine = get_engine(request)
     rid = getattr(request.state, "request_id", None)
-    return await engine.analyze(req, request_id=rid)
+    runtime_guard = getattr(request.app.state, "runtime_guard", None)
+    if runtime_guard and not await runtime_guard.try_acquire():
+        return engine.analyze_deterministic(req, request_id=rid, emergency_reason="overload_rejected")
+    timeout_seconds = request.app.state.settings.request_timeout_seconds
+    deadline_monotonic = time.perf_counter() + timeout_seconds
+    try:
+        async with asyncio.timeout(timeout_seconds + 1.0):
+            if request.app.state.settings.demo_mode and request.app.state.settings.demo_disable_external_llm:
+                return engine.analyze_deterministic(req, request_id=rid, emergency_reason="demo_mode_external_disabled")
+            return await engine.analyze(req, request_id=rid, deadline_monotonic=deadline_monotonic)
+    except TimeoutError as exc:
+        raise HTTPException(status_code=504, detail="Время обработки запроса превышено") from exc
+    finally:
+        if runtime_guard:
+            await runtime_guard.release()

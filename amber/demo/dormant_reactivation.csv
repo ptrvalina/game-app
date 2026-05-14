@@ -1,0 +1,5 @@
+timestamp,amount,currency,direction,counterparty,channel,asset_type,id,narrative
+2025-01-05T10:00:00Z,120.00,EUR,in,Legacy Client,bank,fiat,h1,Historic payroll
+2026-06-01T09:00:00Z,2400.00,EUR,in,New Sender A,bank,fiat,f1,Unexpected renewal
+2026-06-01T09:25:00Z,2450.00,EUR,in,New Sender B,bank,fiat,f2,Unexpected renewal
+2026-06-01T11:10:00Z,4100.00,EUR,out,Receiver Hub,bank,fiat,f3,Rapid outbound

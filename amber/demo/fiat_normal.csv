@@ -1,0 +1,22 @@
+timestamp,amount,currency,direction,counterparty,channel,asset_type,id
+2026-01-05T10:00:00,520.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-001
+2026-01-12T11:30:00,480.00,EUR,out,Supermarket POS,card,fiat,tx-002
+2026-01-19T09:15:00,610.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-003
+2026-01-26T14:40:00,495.00,EUR,out,Utilities DD,sepa,fiat,tx-004
+2026-02-02T10:05:00,530.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-005
+2026-02-09T12:20:00,505.00,EUR,out,Supermarket POS,card,fiat,tx-006
+2026-02-16T09:50:00,540.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-007
+2026-02-23T15:10:00,490.00,EUR,out,Utilities DD,sepa,fiat,tx-008
+2026-03-02T10:12:00,525.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-009
+2026-03-09T13:00:00,500.00,EUR,out,Supermarket POS,card,fiat,tx-010
+2026-03-16T09:40:00,555.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-011
+2026-03-23T14:25:00,485.00,EUR,out,Utilities DD,sepa,fiat,tx-012
+2026-03-30T10:08:00,515.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-013
+2026-04-06T11:45:00,495.00,EUR,out,Supermarket POS,card,fiat,tx-014
+2026-04-13T09:30:00,530.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-015
+2026-04-20T16:05:00,470.00,EUR,out,Utilities DD,sepa,fiat,tx-016
+2026-04-27T10:22:00,545.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-017
+2026-05-04T12:50:00,510.00,EUR,out,Supermarket POS,card,fiat,tx-018
+2026-05-08T10:00:00,525.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-f1
+2026-05-08T10:15:00,515.00,EUR,in,ACME Payroll SEPA,sepa,fiat,tx-f2
+2026-05-08T10:30:00,530.00,EUR,out,Supermarket POS,card,fiat,tx-f3

@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings
+from app.core.context import get_request_id
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,12 @@ class LLMProvider:
             name: {
                 "configured": state.configured,
                 "circuit_open": bool(state.circuit_open_until and state.circuit_open_until > now),
+                "cooldown_remaining_seconds": max(
+                    0,
+                    int((state.circuit_open_until - now).total_seconds()),
+                )
+                if state.circuit_open_until and state.circuit_open_until > now
+                else 0,
                 "consecutive_failures": state.consecutive_failures,
                 "last_error_code": state.last_error_code,
                 "last_success_at": state.last_success_at.isoformat() if state.last_success_at else None,
@@ -109,33 +116,48 @@ class LLMProvider:
         user: str,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        deadline_monotonic: float | None = None,
     ) -> LLMCallResult:
         providers = self._providers_to_try()
         if not providers:
             raise RuntimeError("Нет доступных LLM-провайдеров: ключи отсутствуют или circuit breaker открыт")
 
+        wall_deadline = time.perf_counter() + float(self._settings.llm_wall_budget_seconds)
+        if deadline_monotonic is not None:
+            wall_deadline = min(wall_deadline, deadline_monotonic)
         prompt_chars = len(system) + len(user)
         last_err: Exception | None = None
 
         for provider_idx, name in enumerate(providers):
+            if time.perf_counter() >= wall_deadline:
+                raise TimeoutError("request_deadline_exceeded")
             started = time.perf_counter()
             retries_used = 0
             for attempt in range(self._settings.llm_max_retries + 1):
+                if time.perf_counter() >= wall_deadline:
+                    raise TimeoutError("request_deadline_exceeded")
                 try:
+                    budget_seconds = self._remaining_budget_seconds(wall_deadline)
                     if name == "openai":
-                        data = await self._openai_json(
-                            system=system,
-                            user=user,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
+                        data = await self._invoke_with_budget(
+                            self._openai_json(
+                                system=system,
+                                user=user,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                            ),
+                            budget_seconds=budget_seconds,
                         )
                         model = self._settings.openai_model
                     else:
-                        data = await self._anthropic_json(
-                            system=system,
-                            user=user,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
+                        data = await self._invoke_with_budget(
+                            self._anthropic_json(
+                                system=system,
+                                user=user,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                            ),
+                            budget_seconds=budget_seconds,
                         )
                         model = self._settings.anthropic_model
 
@@ -156,8 +178,9 @@ class LLMProvider:
                     retryable = self._is_retryable(exc)
                     self._record_failure(name, error_code=error_code)
                     logger.warning(
-                        "llm.%s failed stage=%s provider=%s attempt=%s retryable=%s error=%s",
+                        "llm.%s failed request_id=%s stage=%s provider=%s attempt=%s retryable=%s error=%s",
                         "call",
+                        get_request_id(),
                         stage,
                         name,
                         attempt + 1,
@@ -166,7 +189,10 @@ class LLMProvider:
                     )
                     if retryable and attempt < self._settings.llm_max_retries:
                         retries_used += 1
-                        await asyncio.sleep(min(2**attempt, 3))
+                        sleep_for = min(2**attempt, 2, self._remaining_budget_seconds(wall_deadline))
+                        if sleep_for <= 0:
+                            raise TimeoutError("request_deadline_exceeded")
+                        await asyncio.sleep(sleep_for)
                         continue
                     break
 
@@ -202,6 +228,18 @@ class LLMProvider:
         if exc is None:
             return "unknown"
         return exc.__class__.__name__
+
+    async def _invoke_with_budget(self, coro, *, budget_seconds: float):
+        if budget_seconds <= 0:
+            raise TimeoutError("request_deadline_exceeded")
+        try:
+            async with asyncio.timeout(min(self._settings.llm_timeout_seconds, budget_seconds)):
+                return await coro
+        except TimeoutError as exc:
+            raise httpx.TimeoutException("provider_timeout_budget_exceeded") from exc
+
+    def _remaining_budget_seconds(self, deadline_monotonic: float) -> float:
+        return max(0.0, deadline_monotonic - time.perf_counter())
 
     async def _openai_json(
         self,

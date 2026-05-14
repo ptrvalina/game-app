@@ -7,6 +7,7 @@
     "bot": "node bot/bot.js",
     "dev": "node backend/src/server.js",
     "test": "node --test",
+    "test:amber": "powershell -NoProfile -ExecutionPolicy Bypass -File ./amber/scripts/pytest.ps1",
     "lint": "node --check backend/src/server.js && node --check bot/bot.js && node --check frontend/app.js",
     "smoke": "powershell -ExecutionPolicy Bypass -File ./scripts/smoke.ps1",
     "backup": "powershell -ExecutionPolicy Bypass -File ./scripts/backup.ps1"
