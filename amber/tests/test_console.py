@@ -19,6 +19,13 @@ def test_console_html_has_pilot_controls() -> None:
     assert "demoLibrary" in html
     assert "txDrilldown" in html
     assert "btnExportSarDocx" in html
+    assert "caseTitle" in html
+    assert "caseReliability" in html
+    assert "replaySummary" in html
+    assert "telemetryPanel" in html
+    assert "btnEvidenceCsv" in html
+    assert "evidenceFilter" in html
+    assert "evidenceGroup" in html
 
 
 def test_demo_datasets_exist() -> None:

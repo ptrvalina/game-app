@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Amber — консоль пилотного контура</title>
+    <title>Amber — supervised compliance workspace</title>
     <link rel="stylesheet" href="/static/amber.css" />
   </head>
   <body>
@@ -13,12 +13,14 @@
 
     <header class="site-header">
       <div class="brand">
+        <div class="eyebrow">Belarus pilot workspace</div>
         <h1>Amber</h1>
-        <span>Детерминированный compliance engine для пилотного supervised использования</span>
+        <span>Инструмент поддержки compliance-расследования. Решения и эскалация подтверждаются аналитиком.</span>
       </div>
       <div class="header-actions">
-        <span class="badge">single-service</span>
-        <span class="badge badge-warn">требуется проверка аналитика</span>
+        <span class="badge">deterministic-first</span>
+        <span class="badge">replayable audit</span>
+        <span class="badge badge-warn">human validation mandatory</span>
         <span class="badge" id="demoModeBadge" hidden>демо-режим</span>
         <a href="/docs" target="_blank" rel="noopener">OpenAPI</a>
         <a href="/ready" target="_blank" rel="noopener">Готовность</a>
@@ -27,43 +29,45 @@
       </div>
     </header>
 
-    <div class="review-banner" id="reviewBanner" hidden>
-      <strong>Только для supervised review.</strong>
-      Требуется верификация аналитиком. AI-текст является policy-validated поддерживающим нарративом и не считается окончательным правовым выводом.
-    </div>
-    <div class="review-banner review-banner-demo" id="demoBanner" hidden>
-      <strong>Включён демо-режим.</strong>
-      Используйте только синтетические данные. Внешние провайдеры и экспорт могут быть ограничены настройками окружения.
+    <div class="workspace-banner-row">
+      <div class="review-banner" id="reviewBanner" hidden>
+        <strong>Только для supervised review.</strong>
+        Amber показывает детерминированные индикаторы повышенного риска, policy-validated narrative и replayable audit trail. Финальная оценка и любые действия требуют подтверждения аналитиком.
+      </div>
+      <div class="review-banner review-banner-demo" id="demoBanner" hidden>
+        <strong>Включён демо-режим.</strong>
+        Используйте только синтетические или обезличенные данные. Экспорт и внешние narrative-провайдеры могут быть ограничены настройками среды.
+      </div>
     </div>
 
-    <main class="layout layout-console">
-      <section class="panel" aria-labelledby="h-onboard">
+    <main class="workspace-shell">
+      <aside class="panel workspace-panel workspace-left" aria-labelledby="h-onboard">
         <div class="panel-head">
-          <h2 id="h-onboard">Пилотное подключение</h2>
+          <h2 id="h-onboard">Onboarding и загрузка</h2>
         </div>
-        <div class="panel-body">
+        <div class="panel-body workspace-sidebar-scroll">
           <label class="field">
-            API-ключ (если задан `AMBER_API_KEY`)
+            API-ключ сессии
             <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key" />
           </label>
 
           <section class="stack-block">
-            <div class="subhead">Краткое объяснение для аналитика</div>
+            <div class="subhead">Как использовать Amber</div>
             <details class="walkthrough-item" open>
-              <summary>Как работает Amber</summary>
-              <p>Amber разбирает кейс, строит детерминированный профиль и набор anomaly evidence, выполняет policy checks и только после этого позволяет AI-слою описывать уже подтверждённые выводы.</p>
+              <summary>Как работает investigation workflow</summary>
+              <p>Amber нормализует входные данные, строит детерминированный профиль, формирует explainable evidence и только затем создаёт policy-validated narrative для поддержки расследования.</p>
             </details>
             <details class="walkthrough-item">
-              <summary>Как формируется anomaly score</summary>
-              <p>Скор формируется из вкладов deterministic evidence: thresholds, baseline, tx references и правил конкретных типологий. Ни одна LLM не может изменить итоговый скор.</p>
+              <summary>Что означает Risk Score</summary>
+              <p>Risk Score отражает суммарный вклад детерминированных правил и typology triggers. Narrative-слой не может менять сам скор или скрывать evidence.</p>
             </details>
             <details class="walkthrough-item">
-              <summary>Что означает confidence</summary>
-              <p>Confidence — это калибровочный показатель. Он снижается при слабой истории, плохом качестве входных данных, низком согласии evidence, degraded mode и emergency mode.</p>
+              <summary>Что означает Evidence Reliability</summary>
+              <p>Evidence Reliability отражает глубину истории, покрытие транзакций, согласованность детерминированных правил и штрафы за malformed input или safe-mode ограничения. Это не “уверенность AI”.</p>
             </details>
             <details class="walkthrough-item">
-              <summary>Что означает emergency mode</summary>
-              <p>Emergency mode сохраняет доступность сервиса, если LLM-слой или budget constraints недоступны. Deterministic evidence продолжает работать, а narrative заменяется безопасным fallback-текстом.</p>
+              <summary>Что означает Controlled Safe Mode</summary>
+              <p>Если narrative-провайдер недоступен или время обработки ограничено, Amber остаётся доступным в детерминированном safe mode и показывает только безопасный fallback без автономных выводов.</p>
             </details>
           </section>
 
@@ -75,26 +79,26 @@
           <section class="stack-block">
             <div class="subhead">Текст для пилотных клиентов</div>
             <div class="wizard-card">
-              <div class="minihead">Готовое описание сервиса</div>
-              <pre class="pre-wrap small compact-pre" id="pilotClientText">Amber — это supervised compliance console для пилотного тестирования AML / fraud сценариев на синтетических или обезличенных выгрузках.
+              <div class="minihead">Готовое описание supervised pilot</div>
+              <pre class="pre-wrap small compact-pre" id="pilotClientText">Amber — это supervised compliance workspace для пилотного тестирования AML / fraud сценариев на синтетических или обезличенных выгрузках.
 
 Что доступно в пилоте:
 - загрузка CSV и детерминированная нормализация
-- explainable anomaly scoring
-- policy-validated narrative
-- replayable audit bundle
+- explainable risk scoring
+- policy-validated internal memo
+- replayable signed audit bundle
 - analyst review workflow
 
 Как использовать:
 1. Откройте демо-кейс или загрузите CSV.
-2. Проверьте normalization report и malformed rows.
-3. Запустите анализ и просмотрите evidence, traces и SAR memo.
-4. При необходимости зафиксируйте review status и выгрузите bundle.
+2. Проверьте normalization report, sanitized preview и отклонённые строки.
+3. Запустите анализ и просмотрите deterministic evidence, memo и replay diagnostics.
+4. При необходимости подтвердите review status и выгрузите bundle.
 
 Важно:
-- Amber не выносит окончательные юридические выводы.
-- Все результаты требуют проверки аналитиком.
-- Для демо и пилота рекомендуется использовать синтетические либо обезличенные данные.</pre>
+- Amber не заменяет аналитика, комплаенс-функцию или регулятора.
+- Amber не доказывает противоправную деятельность и не выполняет автономную подачу SAR.
+- Любая эскалация и интерпретация результатов требуют человеческой проверки.</pre>
               <div class="btn-row">
                 <button type="button" class="btn btn-small" id="btnCopyPilotText">Копировать текст</button>
                 <a href="/static/pilot-client-ru.txt" target="_blank" rel="noopener">Открыть / скачать txt</a>
@@ -125,7 +129,7 @@
             </div>
             <div class="grid-2">
               <label class="field">
-                Focus (последние N строк)
+                Focus window (последние N строк)
                 <input type="number" id="csvFocusN" value="12" min="1" max="500" />
               </label>
               <label class="field">
@@ -150,19 +154,23 @@
             <div class="wizard-preview">
               <div class="wizard-card">
                 <div class="minihead">Отчёт нормализации</div>
+                <div class="helper-inline">Sanitized operational summary</div>
                 <pre class="pre-wrap small compact-pre" id="csvReport"></pre>
               </div>
               <div class="wizard-card">
                 <div class="minihead">Обнаруженные колонки</div>
+                <div class="helper-inline">Privacy-safe mapping preview</div>
                 <pre class="pre-wrap small compact-pre" id="csvColumns"></pre>
               </div>
             </div>
             <div class="wizard-card">
               <div class="minihead">Предпросмотр нормализованных строк</div>
+              <div class="helper-inline">Sanitized preview</div>
               <div id="csvPreviewTable" class="evidence-table"></div>
             </div>
             <div class="wizard-card">
               <div class="minihead">Ошибочные / отклонённые строки</div>
+              <div class="helper-inline">Sanitized preview</div>
               <div id="csvMalformedTable" class="evidence-table"></div>
             </div>
           </section>
@@ -170,140 +178,235 @@
           <section class="stack-block">
             <div class="subhead">Анализ JSON</div>
             <label class="field">
+              Входной JSON для отладки supervised кейса
               <textarea class="json-input" id="payload" spellcheck="false"></textarea>
             </label>
             <div class="btn-row">
-              <button type="button" class="btn btn-primary" id="btnSend">Анализировать JSON</button>
+              <button type="button" class="btn btn-primary" id="btnSend">Запустить анализ</button>
               <button type="button" class="btn" id="btnSample">Загрузить пример</button>
-              <button type="button" class="btn" id="btnClear">Очистить вывод</button>
+              <button type="button" class="btn" id="btnClear">Очистить рабочее место</button>
             </div>
           </section>
 
           <div class="alert" id="errorBox" role="alert"></div>
         </div>
-      </section>
+      </aside>
 
-      <section class="panel" aria-labelledby="h-workspace">
+      <section class="panel workspace-panel workspace-center" aria-labelledby="h-workspace">
         <div class="panel-head panel-head-row">
-          <h2 id="h-workspace">Рабочее место аналитика</h2>
+          <div>
+            <div class="eyebrow">Compliance investigation workspace</div>
+            <h2 id="h-workspace">Карточка расследования</h2>
+          </div>
           <div class="head-badges">
-            <span class="score-pill" id="scorePill" hidden>anomaly —</span>
+            <span class="score-pill" id="scorePill" hidden>Risk Score —</span>
             <span class="pill-severity" id="severityPill" hidden></span>
           </div>
         </div>
-        <div class="chips" id="chips"></div>
-        <div class="console-toolbar">
-          <div class="grid-2 review-grid">
-            <label class="field">
-              Статус review
-              <select id="reviewStatus">
-                <option value="pending">pending</option>
-                <option value="analyst_confirmed">analyst_confirmed</option>
-                <option value="analyst_rejected">analyst_rejected</option>
-                <option value="escalated">escalated</option>
-              </select>
-            </label>
-            <label class="field">
-              Проверил
-              <input type="text" id="reviewedBy" placeholder="analyst@example.com" />
-            </label>
-          </div>
-          <label class="field">
-            Заметки аналитика
-            <textarea class="review-notes" id="reviewNotes" spellcheck="false"></textarea>
-          </label>
-          <div class="btn-row">
-            <button type="button" class="btn" id="btnExportBundle">Экспортировать ZIP bundle</button>
-            <button type="button" class="btn" id="btnExportSarTxt">Экспорт SAR в txt</button>
-            <button type="button" class="btn" id="btnExportSarMd">Экспорт SAR в markdown</button>
-            <button type="button" class="btn" id="btnExportSarDocx">Экспорт SAR в docx</button>
-          </div>
-          <div class="btn-row">
-            <input type="file" id="replayBundleFile" accept=".zip,application/zip" />
-            <button type="button" class="btn" id="btnReplayBundle">Проверить replay bundle</button>
-          </div>
-          <div class="hint" id="bundleStatus"></div>
-        </div>
+        <div class="panel-body workspace-main-scroll">
+          <section class="case-header-card">
+            <div class="case-header-top">
+              <div>
+                <div class="eyebrow">Primary case header</div>
+                <h3 class="case-title" id="caseTitle">Ожидание кейса</h3>
+                <p class="case-subtitle" id="caseSubtitle">Amber подготавливает explainable evidence и внутренний memo для supervised review. Любая эскалация требует подтверждения аналитиком.</p>
+              </div>
+              <div class="case-badges">
+                <span class="badge badge-warn" id="caseReviewRequired">review required</span>
+                <span class="badge" id="caseReplayBadge">replay not verified</span>
+                <span class="badge" id="caseSafeModeBadge" hidden>deterministic fallback active</span>
+              </div>
+            </div>
 
-        <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-tab="overview" role="tab">Обзор</button>
-          <button type="button" class="tab" data-tab="evidence" role="tab">Evidence explorer</button>
-          <button type="button" class="tab" data-tab="transactions" role="tab">Транзакции</button>
-          <button type="button" class="tab" data-tab="traces" role="tab">Трассы</button>
-          <button type="button" class="tab" data-tab="sar" role="tab">SAR memo</button>
-          <button type="button" class="tab" data-tab="router" role="tab">Router</button>
-          <button type="button" class="tab" data-tab="analyst" role="tab">Analyst</button>
-          <button type="button" class="tab" data-tab="raw" role="tab">JSON</button>
-        </div>
+            <div class="case-header-grid">
+              <div class="case-field"><span>CASE ID</span><strong id="caseId">—</strong></div>
+              <div class="case-field"><span>REVIEW STATUS</span><strong id="caseReviewStatus">pending</strong></div>
+              <div class="case-field"><span>JURISDICTION</span><strong id="caseJurisdiction">—</strong></div>
+              <div class="case-field"><span>MODE</span><strong id="caseMode">—</strong></div>
+              <div class="case-field"><span>ANALYST</span><strong id="caseAnalyst">—</strong></div>
+              <div class="case-field"><span>LAST UPDATED</span><strong id="caseUpdatedAt">—</strong></div>
+              <div class="case-field"><span>EVIDENCE RELIABILITY</span><strong id="caseReliability">—</strong></div>
+              <div class="case-field"><span>VALIDATOR</span><strong id="caseValidatorStatus">—</strong></div>
+            </div>
 
-        <div class="tab-panel active" data-panel="overview" role="tabpanel">
-          <div class="meta-grid" id="overviewMeta"></div>
-          <div class="explain-grid">
-            <div class="wizard-card">
-              <div class="minihead">Почему кейс был отмечен</div>
+            <div class="chips" id="chips"></div>
+
+            <div class="review-actions-grid">
+              <div class="stack-block">
+                <div class="subhead">Analyst decision</div>
+                <div class="grid-2 review-grid">
+                  <label class="field">
+                    Review status
+                    <select id="reviewStatus">
+                      <option value="pending">pending</option>
+                      <option value="analyst_confirmed">analyst_confirmed</option>
+                      <option value="analyst_rejected">analyst_rejected</option>
+                      <option value="escalated">escalated</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    Analyst
+                    <input type="text" id="reviewedBy" placeholder="analyst@example.com" />
+                  </label>
+                </div>
+                <label class="field">
+                  Review note
+                  <textarea class="review-notes" id="reviewNotes" spellcheck="false"></textarea>
+                </label>
+              </div>
+
+              <div class="stack-block">
+                <div class="subhead">Export actions</div>
+                <div class="btn-row">
+                  <button type="button" class="btn" id="btnExportBundle">Экспортировать ZIP bundle</button>
+                  <button type="button" class="btn" id="btnExportSarTxt">SAR txt</button>
+                  <button type="button" class="btn" id="btnExportSarMd">SAR markdown</button>
+                  <button type="button" class="btn" id="btnExportSarDocx">SAR docx</button>
+                </div>
+                <div class="btn-row">
+                  <input type="file" id="replayBundleFile" accept=".zip,application/zip" />
+                  <button type="button" class="btn" id="btnReplayBundle">Проверить replay bundle</button>
+                </div>
+                <div class="hint" id="bundleStatus"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="summary-grid">
+            <div class="summary-card summary-card-wide">
+              <div class="minihead">Case summary</div>
+              <div class="meta-grid" id="overviewMeta"></div>
+              <pre class="pre-wrap summary-pre" id="overviewText"></pre>
+            </div>
+            <div class="summary-card">
+              <div class="minihead">Почему кейс требует review</div>
               <pre class="pre-wrap small compact-pre" id="whyFlagged"></pre>
             </div>
-            <div class="wizard-card">
-              <div class="minihead">Почему confidence был снижен</div>
+            <div class="summary-card">
+              <div class="minihead">Evidence Reliability / Sufficiency</div>
               <pre class="pre-wrap small compact-pre" id="overviewConfidence"></pre>
             </div>
-            <div class="wizard-card">
-              <div class="minihead">Почему validator выполнил downgrade</div>
-              <pre class="pre-wrap small compact-pre" id="validatorWhy"></pre>
+          </section>
+
+          <section class="panel-section memo-section">
+            <div class="section-head">
+              <div>
+                <div class="subhead">Primary memo artifact</div>
+                <h3>SAR / Internal Compliance Memo</h3>
+              </div>
+              <div class="sar-toolbar">
+                <button type="button" class="btn btn-small" id="btnCopySar">Копировать memo</button>
+                <span class="hint" id="copySarStatus"></span>
+              </div>
             </div>
-            <div class="wizard-card">
-              <div class="minihead">Причина emergency / degraded mode</div>
-              <pre class="pre-wrap small compact-pre" id="emergencyWhy"></pre>
+            <details class="sar-details" open>
+              <summary>Структурированные поля</summary>
+              <pre class="pre-wrap small" id="sarStructured"></pre>
+            </details>
+            <pre class="pre-wrap memo-pre sar-body" id="outSar"></pre>
+          </section>
+
+          <section class="panel-section">
+            <div class="section-head">
+              <div>
+                <div class="subhead">Deterministic evidence explorer</div>
+                <h3>Evidence explorer</h3>
+              </div>
+              <div class="evidence-toolbar">
+                <label class="field inline-field">
+                  Фильтр
+                  <input type="text" id="evidenceFilter" placeholder="код, типология, контрагент" />
+                </label>
+                <label class="field inline-field">
+                  Группировать
+                  <select id="evidenceGroup">
+                    <option value="none">без группировки</option>
+                    <option value="category">по типологии</option>
+                    <option value="source">по источнику</option>
+                  </select>
+                </label>
+                <button type="button" class="btn btn-small" id="btnEvidenceCsv">Экспорт evidence CSV</button>
+              </div>
             </div>
-          </div>
-          <pre class="pre-wrap" id="overviewText"></pre>
-        </div>
+            <div class="hint">Таблица показывает детерминированные индикаторы повышенного риска и связанные транзакции. Нажмите на строку, чтобы раскрыть детализацию и drilldown.</div>
+            <div id="evidenceTable" class="evidence-table"></div>
+          </section>
 
-        <div class="tab-panel" data-panel="evidence" role="tabpanel">
-          <div class="hint">Нажмите на строку, чтобы увидеть связанные транзакции и типологии.</div>
-          <div id="evidenceTable" class="evidence-table"></div>
-        </div>
-
-        <div class="tab-panel" data-panel="transactions" role="tabpanel">
-          <div class="transaction-layout">
-            <div class="wizard-card">
-              <div class="minihead">Выбранная транзакция / связь с evidence</div>
-              <div id="txDrilldown"></div>
+          <section class="panel-section">
+            <div class="section-head">
+              <div>
+                <div class="subhead">Transaction drilldown</div>
+                <h3>Связанные транзакции и контекст</h3>
+              </div>
             </div>
-            <div class="wizard-card">
-              <div class="minihead">Временная близость и контрагенты</div>
-              <div id="txRelated"></div>
+            <div class="transaction-layout">
+              <div class="summary-card">
+                <div class="minihead">Выбранная транзакция / evidence linkage</div>
+                <div id="txDrilldown"></div>
+              </div>
+              <div class="summary-card">
+                <div class="minihead">Time proximity, counterparties, related typologies</div>
+                <div id="txRelated"></div>
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        <div class="tab-panel" data-panel="traces" role="tabpanel">
-          <div id="traceContainer"></div>
+          <p class="empty-hint" id="emptyHint">Рабочее место заполнится после анализа кейса, replay bundle или CSV preview.</p>
         </div>
-
-        <div class="tab-panel" data-panel="sar" role="tabpanel">
-          <div class="sar-toolbar">
-            <button type="button" class="btn btn-small" id="btnCopySar">Копировать SAR body</button>
-            <span class="hint" id="copySarStatus"></span>
-          </div>
-          <details class="sar-details" open>
-            <summary>Структурированные поля</summary>
-            <pre class="pre-wrap small" id="sarStructured"></pre>
-          </details>
-          <pre class="pre-wrap sar-body" id="outSar"></pre>
-        </div>
-
-        <div class="tab-panel" data-panel="router" role="tabpanel">
-          <pre class="pre-wrap" id="outRouter"></pre>
-        </div>
-        <div class="tab-panel" data-panel="analyst" role="tabpanel">
-          <pre class="pre-wrap" id="outAnalyst"></pre>
-        </div>
-        <div class="tab-panel" data-panel="raw" role="tabpanel">
-          <pre class="pre-wrap" id="outRaw"></pre>
-        </div>
-        <p class="empty-hint" id="emptyHint">Результат появится здесь после анализа, replay или предпросмотра CSV.</p>
       </section>
+
+      <aside class="panel workspace-panel workspace-right" aria-labelledby="h-audit">
+        <div class="panel-head">
+          <h2 id="h-audit">Replay, validator и аудит</h2>
+        </div>
+        <div class="panel-body workspace-sidebar-scroll">
+          <section class="summary-card">
+            <div class="minihead">Replay verification</div>
+            <div id="replaySummary" class="status-stack"></div>
+          </section>
+
+          <section class="summary-card">
+            <div class="minihead">Validator summary</div>
+            <pre class="pre-wrap small compact-pre" id="validatorWhy"></pre>
+          </section>
+
+          <section class="summary-card">
+            <div class="minihead">Controlled Safe Mode / deterministic diagnostics</div>
+            <pre class="pre-wrap small compact-pre" id="emergencyWhy"></pre>
+          </section>
+
+          <section class="summary-card">
+            <div class="minihead">Runtime telemetry</div>
+            <pre class="pre-wrap small compact-pre" id="telemetryPanel"></pre>
+          </section>
+
+          <section class="summary-card">
+            <div class="minihead">Diagnostics</div>
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab active" data-tab="replay" role="tab">Replay</button>
+              <button type="button" class="tab" data-tab="traces" role="tab">Traces</button>
+              <button type="button" class="tab" data-tab="router" role="tab">Router</button>
+              <button type="button" class="tab" data-tab="analyst" role="tab">Analyst</button>
+              <button type="button" class="tab" data-tab="raw" role="tab">JSON</button>
+            </div>
+            <div class="tab-panel active" data-panel="replay" role="tabpanel">
+              <pre class="pre-wrap small compact-pre" id="diagnosticReplay"></pre>
+            </div>
+            <div class="tab-panel" data-panel="traces" role="tabpanel">
+              <div id="traceContainer"></div>
+            </div>
+            <div class="tab-panel" data-panel="router" role="tabpanel">
+              <pre class="pre-wrap small compact-pre" id="outRouter"></pre>
+            </div>
+            <div class="tab-panel" data-panel="analyst" role="tabpanel">
+              <pre class="pre-wrap small compact-pre" id="outAnalyst"></pre>
+            </div>
+            <div class="tab-panel" data-panel="raw" role="tabpanel">
+              <pre class="pre-wrap small compact-pre" id="outRaw"></pre>
+            </div>
+          </section>
+        </div>
+      </aside>
     </main>
 
     <script src="/static/console.js"></script>
