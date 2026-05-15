@@ -49,6 +49,9 @@
   const STORAGE_KEY = "amber_console_api_key";
   const SORT_DEFAULT = { key: "contribution", dir: "desc" };
   const SORTABLE_COLUMNS = ["timestamp", "counterparty", "direction", "amount", "typology", "contribution", "source", "rule"];
+  const EVIDENCE_PAGE_SIZE = 50;
+  const WIZARD_STEPS = ["upload", "preview", "mapping", "normalize", "analyze"];
+  const workspaceRight = document.querySelector(".workspace-right");
 
   const $ = (id) => document.getElementById(id);
   const loading = $("loading");
@@ -86,7 +89,11 @@
   };
 
   apiKeyEl.value = sessionStorage.getItem(STORAGE_KEY) || "";
-  apiKeyEl.addEventListener("change", () => sessionStorage.setItem(STORAGE_KEY, apiKeyEl.value.trim()));
+  apiKeyEl.addEventListener("change", () => {
+    sessionStorage.setItem(STORAGE_KEY, apiKeyEl.value.trim());
+    renderSessionStatus();
+  });
+  apiKeyEl.addEventListener("input", renderSessionStatus);
   payloadEl.value = JSON.stringify(SAMPLE, null, 2);
 
   let lastResponse = null;
@@ -95,6 +102,7 @@
   let lastSourceRequest = SAMPLE;
   let selectedEvidenceKey = null;
   let evidenceSort = { key: SORT_DEFAULT.key, dir: SORT_DEFAULT.dir };
+  let evidencePage = 0;
   let environmentState = { ready: null, telemetry: null };
 
   function setLoading(on) {
@@ -121,18 +129,34 @@
     return headers;
   }
 
+  function activateWorkspaceTab(name) {
+    document.querySelectorAll(".workspace-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.wtab === name);
+    });
+    document.querySelectorAll(".workspace-tab-panel[data-wpanel]").forEach((panel) => {
+      panel.classList.toggle("active", panel.dataset.wpanel === name);
+    });
+  }
+
+  document.querySelectorAll(".workspace-tab").forEach((btn) => {
+    btn.addEventListener("click", () => activateWorkspaceTab(btn.dataset.wtab));
+  });
+
   function activateTab(name) {
-    document.querySelectorAll(".tab").forEach((btn) => {
+    const root = workspaceRight || document;
+    root.querySelectorAll(".tab").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.tab === name);
     });
-    document.querySelectorAll(".tab-panel").forEach((panel) => {
+    root.querySelectorAll(".tab-panel").forEach((panel) => {
       panel.classList.toggle("active", panel.dataset.panel === name);
     });
   }
 
-  document.querySelectorAll(".tab").forEach((btn) => {
-    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
-  });
+  if (workspaceRight) {
+    workspaceRight.querySelectorAll(".tab").forEach((btn) => {
+      btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+    });
+  }
 
   function makeEl(tag, className, text) {
     const el = document.createElement(tag);
@@ -290,9 +314,215 @@
     }
   }
 
+  function setWizardStep(step) {
+    const idx = WIZARD_STEPS.indexOf(step);
+    document.querySelectorAll("#wizardSteps .wizard-step").forEach((el) => {
+      const stepIdx = WIZARD_STEPS.indexOf(el.dataset.step);
+      el.classList.toggle("active", el.dataset.step === step);
+      el.classList.toggle("done", stepIdx >= 0 && stepIdx < idx);
+    });
+  }
+
+  function renderSessionStatus() {
+    const dot = $("sessionDot");
+    const status = $("sessionStatus");
+    const mask = $("sessionKeyMask");
+    const key = apiKeyEl.value.trim();
+    const ready = environmentState.ready;
+    if (mask) mask.textContent = key ? `${key.slice(0, 4)}••••${key.slice(-2)}` : "not set";
+    if (!ready) {
+      if (dot) dot.className = "session-dot";
+      if (status) status.textContent = "offline";
+      return;
+    }
+    if (dot) dot.className = ready.status === "ready" ? "session-dot ok" : "session-dot warn";
+    if (status) status.textContent = ready.status || "unknown";
+  }
+
+  function renderNormalizationViz(data) {
+    const host = $("normalizationViz");
+    if (!host) return;
+    clearNode(host);
+    const report = (data && data.normalization_report) || {};
+    const metrics = [
+      ["Encoding", report.encoding || "—"],
+      ["Delimiter", report.delimiter || "—"],
+      ["Decimal comma", report.decimal_comma ? "yes" : "no"],
+      ["Malformed ratio", report.malformed_ratio != null ? report.malformed_ratio : "—"],
+      ["Rejected rows", report.rejected_rows != null ? report.rejected_rows : "—"],
+      ["Parsed rows", report.parsed_rows != null ? report.parsed_rows : "—"],
+    ];
+    metrics.forEach(([label, value]) => {
+      const tile = makeEl("div", "norm-metric");
+      tile.appendChild(makeEl("span", "norm-label", label));
+      tile.appendChild(makeEl("strong", "", value));
+      host.appendChild(tile);
+    });
+  }
+
+  function renderReliabilityRing(data) {
+    const ring = $("reliabilityRing");
+    if (!ring) return;
+    const validation = data.meta && data.meta.confidence_validation;
+    const score = validation ? validation.effective_score : data.anomaly.confidence_score;
+    const pct = score != null ? Math.max(0, Math.min(100, Number(score))) : 0;
+    ring.style.setProperty("--pct", pct);
+    ring.textContent = score != null ? `${score}` : "—";
+  }
+
+  function renderAnalystRecommendation(data) {
+    const host = $("analystRecommendation");
+    if (!host) return;
+    const actions = data.reporter.recommended_actions || [];
+    host.textContent = [
+      "Recommended next action (requires analyst validation):",
+      actions.length ? actions.map((item) => "- " + maskText(item)).join("\n") : "- Continue supervised review of deterministic evidence.",
+      "",
+      data.meta.human_review_required ? "Manual review requirement: yes" : "Manual review requirement: optional",
+      data.meta.escalation_recommended ? "Escalation assessment: suggested for analyst review" : "Escalation assessment: not auto-suggested",
+    ].join("\n");
+  }
+
+  function renderOverviewSafeMode(data) {
+    const host = $("overviewSafeMode");
+    if (!host) return;
+    host.textContent = [
+      safeModeText(data.meta),
+      "",
+      data.meta.emergency_mode ? "Degraded/emergency: active" : "Degraded/emergency: inactive",
+      data.meta.fallback_used ? "Fallback narrative: active" : "Fallback narrative: inactive",
+      "Replay-safe deterministic scoring: preserved",
+      "Deterministic-only evidence: visible",
+    ].join("\n");
+  }
+
+  function renderTypologyTable(data) {
+    const host = $("typologyTable");
+    if (!host) return;
+    clearNode(host);
+    const evidence = (data.anomaly && data.anomaly.evidence) || [];
+    if (!evidence.length) {
+      host.textContent = "Typology triggers отсутствуют.";
+      return;
+    }
+    const table = document.createElement("table");
+    table.className = "ev-grid";
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    ["typology", "severity band", "score contribution", "deterministic rule", "evidence refs"].forEach((label) => {
+      headerRow.appendChild(makeEl("th", "", label));
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    evidence.forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.appendChild(makeEl("td", "", item.category || "—"));
+      tr.appendChild(makeEl("td", "", severityLabel(data.anomaly.severity || "low")));
+      tr.appendChild(makeEl("td", "", item.contribution != null ? item.contribution : "—"));
+      tr.appendChild(makeEl("td", "", item.code || "—"));
+      tr.appendChild(makeEl("td", "", (item.tx_refs || []).join(", ") || "profile"));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    host.appendChild(table);
+  }
+
+  function renderTxTimeline(data, row) {
+    const host = $("txTimeline");
+    if (!host) return;
+    clearNode(host);
+    const txs = allTransactions()
+      .filter((tx) => tx && tx.ts)
+      .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+    if (!txs.length) {
+      host.textContent = "Нет транзакций для timeline.";
+      return;
+    }
+    const highlight = new Set((row && row.evidence && row.evidence.tx_refs) || []);
+    txs.forEach((tx) => {
+      const key = tx.id || "";
+      const item = makeEl("div", "tx-timeline-item" + (highlight.has(key) ? " tx-timeline-item-active" : ""));
+      item.appendChild(makeEl("div", "tx-timeline-ts", formatDateTime(tx.ts)));
+      item.appendChild(
+        makeEl(
+          "div",
+          "tx-timeline-body",
+          `${tx.direction || "—"} · ${formatAmount(tx.amount)} · ${maskText(tx.counterparty || "—")} · ${tx.asset_type || "—"}`
+        )
+      );
+      host.appendChild(item);
+    });
+  }
+
+  function renderEvidencePagination(totalRows) {
+    const host = $("evidencePagination");
+    if (!host) return;
+    clearNode(host);
+    const pages = Math.max(1, Math.ceil(totalRows / EVIDENCE_PAGE_SIZE));
+    if (totalRows <= EVIDENCE_PAGE_SIZE) {
+      host.hidden = true;
+      return;
+    }
+    host.hidden = false;
+    const info = makeEl("span", "pagination-info", `Строки ${evidencePage * EVIDENCE_PAGE_SIZE + 1}–${Math.min(totalRows, (evidencePage + 1) * EVIDENCE_PAGE_SIZE)} из ${totalRows}`);
+    const prev = makeEl("button", "btn btn-small", "Назад");
+    prev.type = "button";
+    prev.disabled = evidencePage <= 0;
+    prev.addEventListener("click", () => {
+      evidencePage -= 1;
+      if (lastResponse) renderEvidence(lastResponse);
+    });
+    const next = makeEl("button", "btn btn-small", "Вперёд");
+    next.type = "button";
+    next.disabled = evidencePage >= pages - 1;
+    next.addEventListener("click", () => {
+      evidencePage += 1;
+      if (lastResponse) renderEvidence(lastResponse);
+    });
+    host.append(info, prev, next);
+  }
+
+  function cloneReplayStatusCards(sourceHost, targetHost, data) {
+    if (!sourceHost || !targetHost) return;
+    clearNode(targetHost);
+    sourceHost.querySelectorAll(".status-item").forEach((item) => {
+      targetHost.appendChild(item.cloneNode(true));
+    });
+    if (!targetHost.childElementCount) {
+      targetHost.textContent = data
+        ? "Replay diagnostics доступны после проверки bundle."
+        : "Загрузите signed bundle для deterministic replay verification.";
+    }
+  }
+
+  function saveReviewDraft(closeCase) {
+    if (!lastResponse) {
+      showError("Нет активного кейса для сохранения review.");
+      return;
+    }
+    applyReviewState(lastResponse);
+    const statusEl = $("reviewDraftStatus");
+    if (closeCase) {
+      $("reviewStatus").value = $("reviewStatus").value === "pending" ? "analyst_confirmed" : $("reviewStatus").value;
+      lastResponse.meta.review_status = $("reviewStatus").value;
+    }
+    setReviewControls(lastResponse.meta);
+    setHeaderText("caseReviewStatus", lastResponse.meta.review_status || "pending");
+    setHeaderText("caseAnalyst", lastResponse.meta.reviewed_by || "—");
+    setHeaderText("caseUpdatedAt", formatDateTime(lastResponse.meta.reviewed_at || Date.now()));
+    if (statusEl) {
+      statusEl.textContent = closeCase
+        ? "Кейс закрыт для review (локально). Экспортируйте bundle для audit trail."
+        : "Черновик review сохранён локально. Экспортируйте bundle для фиксации в audit chain.";
+    }
+    bundleStatus.textContent = "Review state обновлён. Используйте ZIP export для audit preservation.";
+  }
+
   function renderEnvironmentStatus() {
     const ready = environmentState.ready;
     const telemetry = environmentState.telemetry;
+    renderSessionStatus();
     if (ready && ready.demo_mode) {
       demoBanner.hidden = false;
       demoModeBadge.hidden = false;
@@ -375,8 +605,12 @@
   function renderCsvPreview(data) {
     $("csvReport").textContent = fmt({ summary: data.summary, normalization_report: data.normalization_report });
     $("csvColumns").textContent = fmt({ available_columns: data.available_columns, detected_mapping: data.normalization_report?.column_mapping || {} });
+    renderNormalizationViz(data);
     renderPreviewTable($("csvPreviewTable"), data.preview_rows.filter((row) => row.status === "parsed"));
     renderPreviewTable($("csvMalformedTable"), data.preview_rows.filter((row) => row.status === "rejected"));
+    const hasMapping = Object.values(mappingInputs).some((input) => input && input.value.trim());
+    setWizardStep(hasMapping ? "mapping" : data.preview_rows && data.preview_rows.length ? "preview" : "upload");
+    if (data.normalization_report) setWizardStep("normalize");
   }
 
   function renderPreviewTable(host, rows) {
@@ -490,6 +724,10 @@
     caseReplayBadge.textContent = "replay available after bundle export";
     caseSafeModeBadge.hidden = !meta.emergency_mode && !meta.degraded_mode;
     caseSafeModeBadge.textContent = meta.emergency_mode ? "deterministic fallback active" : "restricted narrative mode";
+    const detBadge = $("caseDeterministicBadge");
+    const llmBadge = $("caseLlmBadge");
+    if (detBadge) detBadge.textContent = "deterministic-first";
+    if (llmBadge) llmBadge.textContent = meta.llm_used ? `narrative: ${meta.llm_used}` : "narrative: policy-validated";
   }
 
   function renderCaseHeaderForReplay(data) {
@@ -588,6 +826,10 @@
       "Проверил: " + (data.meta.reviewed_by || "не указан"),
       "Заметки: " + maskText(data.meta.review_notes || "отсутствуют"),
     ].join("\n");
+    renderReliabilityRing(data);
+    renderAnalystRecommendation(data);
+    renderOverviewSafeMode(data);
+    renderTypologyTable(data);
   }
 
   function renderValidatorSummaryFromAnalyze(data) {
@@ -740,12 +982,18 @@
   function renderEvidence(data) {
     const host = $("evidenceTable");
     clearNode(host);
-    const rows = currentEvidenceRows();
-    if (!rows.length) {
+    const allRows = currentEvidenceRows();
+    const totalRows = allRows.length;
+    renderEvidencePagination(totalRows);
+    if (!totalRows) {
       host.textContent = "Нет детерминированного evidence для текущего фильтра.";
       renderTransactionDrilldown(data, null);
+      renderTxTimeline(data, null);
       return;
     }
+    const maxPage = Math.max(0, Math.ceil(totalRows / EVIDENCE_PAGE_SIZE) - 1);
+    if (evidencePage > maxPage) evidencePage = maxPage;
+    const rows = allRows.slice(evidencePage * EVIDENCE_PAGE_SIZE, (evidencePage + 1) * EVIDENCE_PAGE_SIZE);
 
     const table = document.createElement("table");
     table.className = "ev-grid";
@@ -834,8 +1082,9 @@
 
     table.appendChild(tbody);
     host.appendChild(table);
-    const selected = rows.find((row) => row.key === selectedEvidenceKey) || rows[0];
+    const selected = allRows.find((row) => row.key === selectedEvidenceKey) || allRows[0];
     renderTransactionDrilldown(data, selected);
+    renderTxTimeline(data, selected);
   }
 
   function renderTransactionDrilldown(data, row) {
@@ -904,22 +1153,24 @@
   }
 
   function renderTraces(data) {
-    const host = $("traceContainer");
-    clearNode(host);
-    const traces = (data.meta && data.meta.stage_traces) || [];
-    if (!traces.length) {
-      host.textContent = "Трассы пока отсутствуют.";
-      return;
-    }
-    traces.forEach((trace) => {
-      const det = document.createElement("details");
-      det.className = "trace-block";
-      const summary = document.createElement("summary");
-      summary.appendChild(makeEl("strong", "", trace.stage || ""));
-      summary.appendChild(document.createTextNode(` · ${trace.status} · ${trace.provider || "none"} · validator=${trace.validator_status || "not_run"}`));
-      const pre = makeEl("pre", "pre-wrap small compact-pre", JSON.stringify(maskDeep(trace), null, 2));
-      det.append(summary, pre);
-      host.appendChild(det);
+    const hosts = [$("traceContainer"), $("traceContainerWorkspace")].filter(Boolean);
+    const traces = (data && data.meta && data.meta.stage_traces) || [];
+    hosts.forEach((host) => {
+      clearNode(host);
+      if (!traces.length) {
+        host.textContent = "Трассы пока отсутствуют.";
+        return;
+      }
+      traces.forEach((trace) => {
+        const det = document.createElement("details");
+        det.className = "trace-block";
+        const summary = document.createElement("summary");
+        summary.appendChild(makeEl("strong", "", trace.stage || ""));
+        summary.appendChild(document.createTextNode(` · ${trace.status} · ${trace.provider || "none"} · validator=${trace.validator_status || "not_run"}`));
+        const pre = makeEl("pre", "pre-wrap small compact-pre", JSON.stringify(maskDeep(trace), null, 2));
+        det.append(summary, pre);
+        host.appendChild(det);
+      });
     });
   }
 
@@ -939,6 +1190,7 @@
         replaySummary.appendChild(item);
       });
       diagnosticReplay.textContent = fmt({ replay_status: "pending", message: "Загрузите signed bundle для deterministic replay verification." });
+      cloneReplayStatusCards(replaySummary, $("replayAuditPanel"), null);
       return;
     }
 
@@ -972,6 +1224,7 @@
       validator_summary: data.validator_summary,
       drift_report: data.drift_report,
     });
+    cloneReplayStatusCards(replaySummary, $("replayAuditPanel"), data);
   }
 
   function renderAnalyzeResult(data) {
@@ -996,6 +1249,8 @@
     $("outRouter").textContent = fmt(data.router);
     $("outAnalyst").textContent = fmt(data.analyst);
     $("outRaw").textContent = fmt(data);
+    setWizardStep("analyze");
+    activateWorkspaceTab("overview");
     activateTab("replay");
   }
 
@@ -1024,7 +1279,12 @@
     $("evidenceTable").textContent = "Replay mode: evidence explorer недоступен без полного analyst response. Используйте replay diagnostics справа.";
     $("txDrilldown").textContent = "Replay mode: transaction drilldown не загружен.";
     $("txRelated").textContent = "";
-    $("traceContainer").textContent = fmt(data.hash_checks || []);
+    const hashText = fmt(data.hash_checks || []);
+    $("traceContainer").textContent = hashText;
+    const traceWs = $("traceContainerWorkspace");
+    if (traceWs) traceWs.textContent = hashText;
+    const txTimeline = $("txTimeline");
+    if (txTimeline) txTimeline.textContent = "Replay mode: transaction timeline недоступен.";
     $("outRouter").textContent = "";
     $("outAnalyst").textContent = "";
     $("sarStructured").textContent = "";
@@ -1032,6 +1292,7 @@
     $("outRaw").textContent = fmt(data);
     copySarStatus.textContent = "";
     bundleStatus.textContent = data.drift_detected ? "Replay обнаружил drift или tamper." : "Replay подтвердил signed audit bundle.";
+    activateWorkspaceTab("replay-audit");
     activateTab("replay");
   }
 
@@ -1205,6 +1466,9 @@
     evidenceSort = { key: SORT_DEFAULT.key, dir: SORT_DEFAULT.dir };
     evidenceFilterEl.value = "";
     evidenceGroupEl.value = "none";
+    evidencePage = 0;
+    setWizardStep("upload");
+    activateWorkspaceTab("overview");
     reviewBanner.hidden = true;
     scorePill.hidden = true;
     severityPill.hidden = true;
@@ -1233,7 +1497,7 @@
       const el = $(id);
       if (el) el.textContent = "";
     });
-    ["overviewMeta", "evidenceTable", "traceContainer", "csvPreviewTable", "csvMalformedTable", "replaySummary"].forEach((id) => {
+    ["overviewMeta", "evidenceTable", "traceContainer", "traceContainerWorkspace", "csvPreviewTable", "csvMalformedTable", "replaySummary", "replayAuditPanel", "normalizationViz", "typologyTable", "evidencePagination"].forEach((id) => {
       const el = $(id);
       if (el) clearNode(el);
     });
@@ -1273,13 +1537,20 @@
   });
   $("btnClear").addEventListener("click", clearOut);
   evidenceFilterEl.addEventListener("input", () => {
+    evidencePage = 0;
     if (lastResponse) renderEvidence(lastResponse);
   });
   evidenceGroupEl.addEventListener("change", () => {
+    evidencePage = 0;
     if (lastResponse) renderEvidence(lastResponse);
   });
+  const btnSaveDraft = $("btnSaveDraft");
+  const btnCloseCase = $("btnCloseCase");
+  if (btnSaveDraft) btnSaveDraft.addEventListener("click", () => saveReviewDraft(false));
+  if (btnCloseCase) btnCloseCase.addEventListener("click", () => saveReviewDraft(true));
 
   renderDemoLibrary();
   renderReplaySummary(null);
+  renderSessionStatus();
   refreshOperationalPanels();
 })();

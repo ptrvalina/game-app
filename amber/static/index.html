@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Amber — supervised compliance workspace</title>
+    <title>Amber — AML investigation cockpit</title>
     <link rel="stylesheet" href="/static/amber.css" />
   </head>
   <body>
@@ -38,6 +38,9 @@
         <strong>Включён демо-режим.</strong>
         Используйте только синтетические или обезличенные данные. Экспорт и внешние narrative-провайдеры могут быть ограничены настройками среды.
       </div>
+      <p class="regulatory-disclaimer">
+        Amber does not make autonomous compliance decisions. Final assessment requires analyst validation.
+      </p>
     </div>
 
     <main class="workspace-shell">
@@ -46,10 +49,21 @@
           <h2 id="h-onboard">Onboarding и загрузка</h2>
         </div>
         <div class="panel-body workspace-sidebar-scroll">
-          <label class="field">
-            API-ключ сессии
-            <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key" />
-          </label>
+          <section class="glass-card session-card">
+            <div class="subhead">Session / API</div>
+            <div class="session-row">
+              <span>Connection</span>
+              <span><span class="session-dot" id="sessionDot"></span> <span id="sessionStatus">offline</span></span>
+            </div>
+            <div class="session-row">
+              <span>API key</span>
+              <span id="sessionKeyMask">not set</span>
+            </div>
+            <label class="field">
+              API-ключ сессии
+              <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key" />
+            </label>
+          </section>
 
           <section class="stack-block">
             <div class="subhead">Как использовать Amber</div>
@@ -108,7 +122,14 @@
           </section>
 
           <section class="stack-block">
-            <div class="subhead">Мастер загрузки CSV</div>
+            <div class="subhead">CSV onboarding wizard</div>
+            <div class="wizard-steps" id="wizardSteps">
+              <span class="wizard-step active" data-step="upload">1 Upload</span>
+              <span class="wizard-step" data-step="preview">2 Preview</span>
+              <span class="wizard-step" data-step="mapping">3 Mapping</span>
+              <span class="wizard-step" data-step="normalize">4 Normalize</span>
+              <span class="wizard-step" data-step="analyze">5 Analyze</span>
+            </div>
             <div class="grid-2">
               <label class="field">
                 Режим
@@ -154,7 +175,7 @@
             <div class="wizard-preview">
               <div class="wizard-card">
                 <div class="minihead">Отчёт нормализации</div>
-                <div class="helper-inline">Sanitized operational summary</div>
+                <div id="normalizationViz" class="norm-metrics"></div>
                 <pre class="pre-wrap small compact-pre" id="csvReport"></pre>
               </div>
               <div class="wizard-card">
@@ -214,7 +235,9 @@
               <div class="case-badges">
                 <span class="badge badge-warn" id="caseReviewRequired">review required</span>
                 <span class="badge" id="caseReplayBadge">replay not verified</span>
-                <span class="badge" id="caseSafeModeBadge" hidden>deterministic fallback active</span>
+                <span class="badge" id="caseDeterministicBadge">deterministic-first</span>
+                <span class="badge" id="caseLlmBadge">narrative mode</span>
+                <span class="badge" id="caseSafeModeBadge" hidden>controlled safe mode</span>
               </div>
             </div>
 
@@ -272,6 +295,17 @@
             </div>
           </section>
 
+          <nav class="workspace-tabs" role="tablist" aria-label="Investigation workspace">
+            <button type="button" class="workspace-tab active" data-wtab="overview">Overview</button>
+            <button type="button" class="workspace-tab" data-wtab="evidence">Evidence Explorer</button>
+            <button type="button" class="workspace-tab" data-wtab="transactions">Transactions</button>
+            <button type="button" class="workspace-tab" data-wtab="sar">SAR / Memo</button>
+            <button type="button" class="workspace-tab" data-wtab="analyst-review">Analyst Review</button>
+            <button type="button" class="workspace-tab" data-wtab="traces">Traces</button>
+            <button type="button" class="workspace-tab" data-wtab="replay-audit">Replay &amp; Audit</button>
+          </nav>
+
+          <div class="workspace-tab-panel active" data-wpanel="overview">
           <section class="summary-grid">
             <div class="summary-card summary-card-wide">
               <div class="minihead">Case summary</div>
@@ -283,29 +317,28 @@
               <pre class="pre-wrap small compact-pre" id="whyFlagged"></pre>
             </div>
             <div class="summary-card">
-              <div class="minihead">Evidence Reliability / Sufficiency</div>
-              <pre class="pre-wrap small compact-pre" id="overviewConfidence"></pre>
-            </div>
-          </section>
-
-          <section class="panel-section memo-section">
-            <div class="section-head">
-              <div>
-                <div class="subhead">Primary memo artifact</div>
-                <h3>SAR / Internal Compliance Memo</h3>
-              </div>
-              <div class="sar-toolbar">
-                <button type="button" class="btn btn-small" id="btnCopySar">Копировать memo</button>
-                <span class="hint" id="copySarStatus"></span>
+              <div class="minihead">Evidence Reliability</div>
+              <div class="reliability-ring-wrap">
+                <div class="reliability-ring" id="reliabilityRing" style="--pct:0">—</div>
+                <pre class="pre-wrap small compact-pre" id="overviewConfidence"></pre>
               </div>
             </div>
-            <details class="sar-details" open>
-              <summary>Структурированные поля</summary>
-              <pre class="pre-wrap small" id="sarStructured"></pre>
-            </details>
-            <pre class="pre-wrap memo-pre sar-body" id="outSar"></pre>
+            <div class="summary-card">
+              <div class="minihead">Analyst recommendation</div>
+              <pre class="pre-wrap small compact-pre" id="analystRecommendation"></pre>
+            </div>
+            <div class="summary-card">
+              <div class="minihead">Controlled Safe Mode</div>
+              <pre class="pre-wrap small compact-pre" id="overviewSafeMode"></pre>
+            </div>
+            <div class="summary-card summary-card-wide">
+              <div class="minihead">Typology table</div>
+              <div id="typologyTable" class="evidence-table"></div>
+            </div>
           </section>
+          </div>
 
+          <div class="workspace-tab-panel" data-wpanel="evidence">
           <section class="panel-section">
             <div class="section-head">
               <div>
@@ -328,28 +361,97 @@
                 <button type="button" class="btn btn-small" id="btnEvidenceCsv">Экспорт evidence CSV</button>
               </div>
             </div>
-            <div class="hint">Таблица показывает детерминированные индикаторы повышенного риска и связанные транзакции. Нажмите на строку, чтобы раскрыть детализацию и drilldown.</div>
+            <div class="hint">Таблица показывает детерминированные индикаторы повышенного риска. Нажмите строку для drilldown.</div>
             <div id="evidenceTable" class="evidence-table"></div>
+            <div class="pagination-bar" id="evidencePagination" hidden></div>
           </section>
+          </div>
 
-          <section class="panel-section">
-            <div class="section-head">
-              <div>
-                <div class="subhead">Transaction drilldown</div>
-                <h3>Связанные транзакции и контекст</h3>
+          <div class="workspace-tab-panel" data-wpanel="transactions">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <div class="subhead">Transaction drilldown</div>
+                  <h3>Связанные транзакции и контекст</h3>
+                </div>
               </div>
-            </div>
-            <div class="transaction-layout">
-              <div class="summary-card">
-                <div class="minihead">Выбранная транзакция / evidence linkage</div>
-                <div id="txDrilldown"></div>
+              <div class="transaction-layout">
+                <div class="summary-card">
+                  <div class="minihead">Выбранная транзакция / evidence linkage</div>
+                  <div id="txDrilldown"></div>
+                </div>
+                <div class="summary-card">
+                  <div class="minihead">Time proximity, counterparties, related typologies</div>
+                  <div id="txRelated"></div>
+                </div>
               </div>
-              <div class="summary-card">
-                <div class="minihead">Time proximity, counterparties, related typologies</div>
-                <div id="txRelated"></div>
+              <div class="summary-card summary-card-wide">
+                <div class="minihead">Transaction timeline (explainable)</div>
+                <div id="txTimeline" class="tx-timeline"></div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
+
+          <div class="workspace-tab-panel" data-wpanel="sar">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <div class="subhead">Primary memo artifact</div>
+                  <h3>SAR / Internal Compliance Memo</h3>
+                </div>
+                <div class="sar-toolbar">
+                  <button type="button" class="btn btn-small" id="btnCopySar">Копировать memo</button>
+                  <span class="hint" id="copySarStatus"></span>
+                </div>
+              </div>
+              <details class="sar-details" open>
+                <summary>Структурированные поля</summary>
+                <pre class="pre-wrap small" id="sarStructured"></pre>
+              </details>
+              <pre class="pre-wrap memo-pre sar-body" id="outSar"></pre>
+            </section>
+          </div>
+
+          <div class="workspace-tab-panel" data-wpanel="analyst-review">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <div class="subhead">Supervised analyst workflow</div>
+                  <h3>Analyst review</h3>
+                </div>
+              </div>
+              <p class="hint">Статус review синхронизирован с карточкой кейса. Финальная оценка требует подтверждения аналитиком.</p>
+              <div class="btn-row">
+                <button type="button" class="btn" id="btnSaveDraft">Сохранить черновик</button>
+                <button type="button" class="btn btn-primary" id="btnCloseCase">Закрыть кейс (review)</button>
+              </div>
+              <div class="hint" id="reviewDraftStatus"></div>
+            </section>
+          </div>
+
+          <div class="workspace-tab-panel" data-wpanel="traces">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <div class="subhead">Pipeline traces</div>
+                  <h3>Deterministic / narrative traces</h3>
+                </div>
+              </div>
+              <div id="traceContainerWorkspace"></div>
+            </section>
+          </div>
+
+          <div class="workspace-tab-panel" data-wpanel="replay-audit">
+            <section class="panel-section">
+              <div class="section-head">
+                <div>
+                  <div class="subhead">Replay &amp; audit</div>
+                  <h3>Integrity verification</h3>
+                </div>
+              </div>
+              <div id="replayAuditPanel" class="status-stack"></div>
+            </section>
+          </div>
 
           <p class="empty-hint" id="emptyHint">Рабочее место заполнится после анализа кейса, replay bundle или CSV preview.</p>
         </div>
