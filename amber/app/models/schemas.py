@@ -16,7 +16,17 @@ AssetType = Literal["fiat", "crypto", "unknown"]
 StageState = Literal["live", "fallback", "emergency"]
 ValidatorStatus = Literal["not_run", "passed", "downgraded", "failed"]
 SeverityBand = Literal["low", "medium", "high", "critical"]
-ReviewStatus = Literal["pending", "analyst_confirmed", "analyst_rejected", "escalated"]
+ReviewStatus = Literal[
+    "pending",
+    "triage",
+    "under_review",
+    "escalated",
+    "approved",
+    "rejected",
+    "closed",
+    "analyst_confirmed",
+    "analyst_rejected",
+]
 AnomalyCategory = Literal[
     "amount_spike",
     "velocity_spike",
@@ -386,6 +396,12 @@ class MetaBlock(StrictBaseModel):
     reviewed_by: str | None = Field(default=None, max_length=128)
     reviewed_at: datetime | None = None
     stage_traces: list[StageTrace] = Field(default_factory=list)
+    workflow: "CaseWorkflowState | None" = None
+    audit_events: list["AuditEvent"] = Field(default_factory=list)
+    lifecycle_events: list["LifecycleEvent"] = Field(default_factory=list)
+    governance: "GovernanceMetadata | None" = None
+    connector_provenance: "ConnectorProvenance | None" = None
+    export_access_log: list["ExportAccessLogEntry"] = Field(default_factory=list)
 
 
 class AnalyzeResponse(StrictBaseModel):
@@ -465,12 +481,41 @@ class CsvIngestResponse(StrictBaseModel):
     preview_rows: list[CsvPreviewRow] = Field(default_factory=list)
 
 
+class XlsxIngestResponse(CsvIngestResponse):
+    """XLSX ingest extends CSV ingest with sheet metadata."""
+
+    sheets: list["XlsxSheetPreview"] = Field(default_factory=list)
+    active_sheet: str | None = Field(default=None, max_length=128)
+    connector_provenance: "ConnectorProvenance | None" = None
+
+
 class CaseExportRequest(StrictBaseModel):
     """Запрос на экспорт case artifact без серверного хранения."""
 
     source_request: AnalyzeRequest
     analysis: AnalyzeResponse
     format: CaseExportFormat = "json"
+
+
+class CaseWorkflowRequest(StrictBaseModel):
+    """Stateless workflow mutation against an in-memory case artifact."""
+
+    source_request: AnalyzeRequest
+    analysis: AnalyzeResponse
+    action: str = Field(..., max_length=64)
+    actor_id: str = Field(..., max_length=128)
+    actor_role: str = Field(default="analyst", max_length=32)
+    assignee: str | None = Field(default=None, max_length=128)
+    review_status: str | None = Field(default=None, max_length=32)
+    disposition_code: str | None = Field(default=None, max_length=64)
+    escalation_reason: str | None = Field(default=None, max_length=512)
+    review_notes: str | None = Field(default=None, max_length=4000)
+
+
+class CaseQueueSummaryRequest(StrictBaseModel):
+    """Client-side queue snapshot for deterministic counters."""
+
+    cases: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
 
 
 class CaseExportArtifact(StrictBaseModel):
@@ -515,3 +560,17 @@ class ReplayResponse(StrictBaseModel):
     replayed_profiler: ProfilerSummary | None = None
     replayed_anomaly: AnomalyBlock | None = None
     validator_summary: ValidatorSummary | None = None
+
+
+from app.models.operations import (  # noqa: E402
+    AuditEvent,
+    CaseWorkflowState,
+    ConnectorProvenance,
+    ExportAccessLogEntry,
+    GovernanceMetadata,
+    LifecycleEvent,
+    XlsxSheetPreview,
+)
+
+MetaBlock.model_rebuild()
+XlsxIngestResponse.model_rebuild()

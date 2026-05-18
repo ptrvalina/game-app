@@ -193,7 +193,11 @@ async def console(request: Request) -> Response:
                 request_id=rid,
             ).model_dump(mode="json"),
         )
-    return FileResponse(index, media_type="text/html; charset=utf-8")
+    return FileResponse(
+        index,
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store, max-age=0, must-revalidate"},
+    )
 
 
 if STATIC_DIR.is_dir():

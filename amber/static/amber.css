@@ -762,6 +762,22 @@ button.btn:disabled {
   padding: 0.35rem 0 0.65rem 0.5rem;
   font-size: 0.8rem;
 }
+.queue-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.queue-card {
+  margin-bottom: 0.45rem;
+}
+.case-queue-list {
+  max-height: 220px;
+  overflow: auto;
+}
+
 .tx-timeline-item::before {
   content: "";
   position: absolute;

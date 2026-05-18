@@ -23,6 +23,8 @@ class CaseExportService:
         "traces.json",
         "reporter.json",
         "sar.txt",
+        "workflow.json",
+        "audit_log.json",
         "audit_manifest.json",
     )
 
@@ -147,6 +149,10 @@ class CaseExportService:
         traces_json = self._json_text([item.model_dump(mode="json") for item in analysis.meta.stage_traces])
         reporter_json = self._json_text(analysis.reporter.model_dump(mode="json"))
         sar_text = analysis.reporter.sar_body
+        workflow_json = self._json_text(
+            analysis.meta.workflow.model_dump(mode="json") if analysis.meta.workflow else {}
+        )
+        audit_json = self._json_text([item.model_dump(mode="json") for item in analysis.meta.audit_events])
         files = {
             "normalized_request.json": request_json,
             "deterministic_evidence.json": evidence_json,
@@ -154,6 +160,8 @@ class CaseExportService:
             "traces.json": traces_json,
             "reporter.json": reporter_json,
             "sar.txt": self._sar_text(source_request=source_request, analysis=analysis),
+            "workflow.json": workflow_json,
+            "audit_log.json": audit_json,
         }
         file_hashes = {name: self._sha256(content) for name, content in files.items()}
         manifest = {

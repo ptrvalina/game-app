@@ -134,7 +134,7 @@ class XAIEngine:
             operating_reason=emergency_reason,
             stage_traces=traces,
         )
-        return AnalyzeResponse(
+        response = AnalyzeResponse(
             alert_id=req.alert_id,
             client_id_external=req.client_id_external,
             mode=req.mode,
@@ -146,6 +146,8 @@ class XAIEngine:
             reporter=reporter,
             meta=meta,
         )
+        self._attach_operational_metadata(req, response, request_id)
+        return response
 
     async def analyze(
         self,
@@ -300,7 +302,7 @@ class XAIEngine:
             stage_traces=traces,
         )
 
-        return AnalyzeResponse(
+        response = AnalyzeResponse(
             alert_id=req.alert_id,
             client_id_external=req.client_id_external,
             mode=mode_eff,
@@ -312,6 +314,31 @@ class XAIEngine:
             reporter=reporter,
             meta=meta,
         )
+        self._attach_operational_metadata(req, response, request_id)
+        return response
+
+    def _attach_operational_metadata(
+        self,
+        req: AnalyzeRequest,
+        response: AnalyzeResponse,
+        request_id: str | None,
+    ) -> None:
+        from app.models.operations import ConnectorProvenance
+        from app.services.workflow import seed_workflow
+
+        seed_workflow(source=req, analysis=response, request_id=request_id)
+        if req.extra_context and isinstance(req.extra_context.get("connector_provenance"), dict):
+            response.meta.connector_provenance = ConnectorProvenance.model_validate(
+                req.extra_context["connector_provenance"]
+            )
+        if response.meta.emergency_mode:
+            from app.services.audit_log import append_audit_event
+
+            append_audit_event(
+                response.meta.audit_events,
+                event_type="emergency_mode",
+                details={"operating_reason": response.meta.operating_reason},
+            )
 
     async def _router_stage(
         self,

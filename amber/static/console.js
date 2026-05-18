@@ -122,11 +122,124 @@
     return crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
   }
 
+  const QUEUE_STORAGE_KEY = "amber_case_queue_v1";
+
   function authHeaders() {
     const headers = { "X-Request-ID": uuid() };
     const key = apiKeyEl.value.trim();
     if (key) headers["X-Api-Key"] = key;
+    const roleEl = $("amberRole");
+    if (roleEl && roleEl.value) headers["X-Amber-Role"] = roleEl.value;
     return headers;
+  }
+
+  function loadQueue() {
+    try {
+      return JSON.parse(sessionStorage.getItem(QUEUE_STORAGE_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function saveQueue(items) {
+    sessionStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(items));
+  }
+
+  function upsertQueueCase(data, sourceRequest) {
+    if (!data || !data.meta || !data.meta.workflow) return;
+    const wf = data.meta.workflow;
+    const entry = {
+      case_id: wf.case_id,
+      review_status: wf.review_status,
+      severity: wf.severity,
+      queue_priority: wf.queue_priority,
+      assigned_to: wf.assigned_to,
+      updated_at: wf.updated_at,
+      mode: wf.mode,
+      jurisdiction: wf.jurisdiction,
+      score: data.anomaly ? data.anomaly.anomaly_score : null,
+    };
+    const queue = loadQueue().filter((item) => item.case_id !== entry.case_id);
+    queue.unshift(entry);
+    saveQueue(queue.slice(0, 200));
+    renderQueuePanel();
+  }
+
+  async function refreshQueueCounters() {
+    const host = $("queueCounters");
+    if (!host) return;
+    try {
+      const res = await fetch("/api/v1/case/queue/summary", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ cases: loadQueue() }),
+      });
+      const json = await parseJsonResponse(res);
+      host.textContent = Object.entries(json)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · ");
+    } catch {
+      host.textContent = "Queue counters unavailable";
+    }
+  }
+
+  function renderQueuePanel() {
+    const list = $("caseQueueList");
+    if (!list) return;
+    clearNode(list);
+    const filter = ($("queueFilter") && $("queueFilter").value) || "all";
+    const items = loadQueue().filter((item) => filter === "all" || item.review_status === filter);
+    if (!items.length) {
+      list.textContent = "Очередь пуста. Запустите анализ или демо-кейс.";
+      refreshQueueCounters();
+      return;
+    }
+    items.forEach((item) => {
+      const card = makeEl("div", "demo-card queue-card");
+      card.appendChild(makeEl("strong", "", `${item.case_id} · ${item.review_status}`));
+      card.appendChild(
+        makeEl(
+          "p",
+          "hint",
+          `severity=${item.severity} · priority=${item.queue_priority} · score=${item.score != null ? item.score : "—"}`
+        )
+      );
+      card.appendChild(makeEl("p", "hint", `assigned=${item.assigned_to || "—"} · ${formatDateTime(item.updated_at)}`));
+      list.appendChild(card);
+    });
+    refreshQueueCounters();
+  }
+
+  function renderGovernancePanels(data) {
+    const gov = $("governanceSummary");
+    const audit = $("auditTimeline");
+    const exports = $("exportHistory");
+    const lifecycle = $("lifecycleTimeline");
+    if (!data || !data.meta) return;
+    if (gov) {
+      gov.textContent = data.meta.governance
+        ? fmt(data.meta.governance)
+        : "Governance metadata will appear after analyze.";
+    }
+    if (audit) {
+      audit.textContent = (data.meta.audit_events || []).length
+        ? (data.meta.audit_events || []).map((e) => `${e.sequence}. ${e.event_type} · ${e.event_hash.slice(0, 8)}`).join("\n")
+        : "Audit stream empty.";
+    }
+    if (exports) {
+      exports.textContent = (data.meta.export_access_log || []).length
+        ? (data.meta.export_access_log || []).map((e) => `${e.export_type} · ${e.actor_id || "—"} · ${e.occurred_at}`).join("\n")
+        : "Export access log empty.";
+    }
+    if (lifecycle) {
+      clearNode(lifecycle);
+      (data.meta.lifecycle_events || []).forEach((ev) => {
+        const row = makeEl("div", "tx-timeline-item");
+        row.appendChild(makeEl("div", "tx-timeline-ts", formatDateTime(ev.occurred_at)));
+        row.appendChild(makeEl("div", "tx-timeline-body", `${ev.event} · ${ev.actor_id || "—"} · ${ev.note || ""}`));
+        lifecycle.appendChild(row);
+      });
+    }
   }
 
   function activateWorkspaceTab(name) {
@@ -648,6 +761,67 @@
       return;
     }
     await requestCsvPreview({ blob: fileInput.files[0], filename: fileInput.files[0].name });
+  }
+
+  async function previewXlsxFromInput() {
+    const fileInput = $("xlsxFile");
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+      showError("Сначала выберите XLSX-файл.");
+      return;
+    }
+    showError("");
+    const fd = new FormData();
+    fd.append("file", fileInput.files[0]);
+    fd.append("mode", $("csvMode").value);
+    fd.append("jurisdiction", $("csvJurisdiction").value);
+    fd.append("focus_last_n", String(parseInt($("csvFocusN").value, 10) || 12));
+    const overrides = collectOverrides();
+    if (Object.keys(overrides).length) fd.append("column_overrides_json", JSON.stringify(overrides));
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/ingest/xlsx", { method: "POST", headers: authHeaders(), body: fd });
+      const json = await parseJsonResponse(res);
+      lastIngest = json;
+      lastSourceRequest = json.normalized_request;
+      payloadEl.value = JSON.stringify(json.normalized_request, null, 2);
+      renderCsvPreview(json);
+      setWizardStep("preview");
+    } catch (err) {
+      showError(err.message || String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function applyWorkflow(action, options) {
+    if (!lastResponse || !lastSourceRequest) {
+      showError("Нет активного кейса для workflow.");
+      return null;
+    }
+    const body = {
+      source_request: lastSourceRequest,
+      analysis: applyReviewState(JSON.parse(JSON.stringify(lastResponse))),
+      action,
+      actor_id: $("reviewedBy").value.trim() || "analyst@workspace",
+      actor_role: ($("amberRole") && $("amberRole").value) || "analyst",
+      assignee: options && options.assignee,
+      review_status: options && options.review_status,
+      disposition_code: options && options.disposition_code,
+      escalation_reason: options && options.escalation_reason,
+      review_notes: $("reviewNotes").value.trim() || null,
+    };
+    const res = await fetch("/api/v1/case/workflow", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+      body: JSON.stringify(body),
+    });
+    const json = await parseJsonResponse(res);
+    lastResponse = json;
+    setReviewControls(json.meta || {});
+    renderCaseHeaderForAnalyze(json);
+    renderGovernancePanels(json);
+    upsertQueueCase(json, lastSourceRequest);
+    return json;
   }
 
   async function analyzePreview() {
@@ -1250,6 +1424,8 @@
     $("outAnalyst").textContent = fmt(data.analyst);
     $("outRaw").textContent = fmt(data);
     setWizardStep("analyze");
+    upsertQueueCase(data, lastSourceRequest);
+    renderGovernancePanels(data);
     activateWorkspaceTab("overview");
     activateTab("replay");
   }
@@ -1522,6 +1698,10 @@
 
   $("btnSend").addEventListener("click", sendJson);
   $("btnCsvPreview").addEventListener("click", previewCsvFromInput);
+  const btnXlsx = $("btnXlsxPreview");
+  if (btnXlsx) btnXlsx.addEventListener("click", previewXlsxFromInput);
+  const queueFilter = $("queueFilter");
+  if (queueFilter) queueFilter.addEventListener("change", renderQueuePanel);
   $("btnAnalyzePreview").addEventListener("click", analyzePreview);
   $("btnExportBundle").addEventListener("click", exportBundle);
   $("btnExportSarTxt").addEventListener("click", () => exportSar("txt"));
@@ -1546,11 +1726,30 @@
   });
   const btnSaveDraft = $("btnSaveDraft");
   const btnCloseCase = $("btnCloseCase");
-  if (btnSaveDraft) btnSaveDraft.addEventListener("click", () => saveReviewDraft(false));
-  if (btnCloseCase) btnCloseCase.addEventListener("click", () => saveReviewDraft(true));
+  if (btnSaveDraft) {
+    btnSaveDraft.addEventListener("click", async () => {
+      try {
+        await applyWorkflow("set_status", { review_status: $("reviewStatus").value });
+        $("reviewDraftStatus").textContent = "Черновик workflow сохранён (stateless artifact).";
+      } catch (err) {
+        showError(err.message || String(err));
+      }
+    });
+  }
+  if (btnCloseCase) {
+    btnCloseCase.addEventListener("click", async () => {
+      try {
+        await applyWorkflow("close", { review_status: "closed" });
+        $("reviewDraftStatus").textContent = "Кейс закрыт supervisor workflow (локальный artifact).";
+      } catch (err) {
+        showError(err.message || String(err));
+      }
+    });
+  }
 
   renderDemoLibrary();
   renderReplaySummary(null);
   renderSessionStatus();
+  renderQueuePanel();
   refreshOperationalPanels();
 })();

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Amber — AML investigation cockpit</title>
-    <link rel="stylesheet" href="/static/amber.css" />
+    <link rel="stylesheet" href="/static/amber.css?v=20260216" />
   </head>
   <body>
     <div class="loading-overlay" id="loading" aria-hidden="true">
@@ -63,6 +63,34 @@
               API-ключ сессии
               <input type="password" id="apiKey" autocomplete="off" placeholder="X-Api-Key" />
             </label>
+            <label class="field">
+              Amber role (RBAC)
+              <select id="amberRole">
+                <option value="analyst">analyst</option>
+                <option value="reviewer">reviewer</option>
+                <option value="supervisor">supervisor</option>
+                <option value="auditor">auditor</option>
+                <option value="readonly">readonly</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="stack-block" id="caseQueuePanel">
+            <div class="subhead">Case queue (operations)</div>
+            <div class="queue-counters" id="queueCounters"></div>
+            <label class="field">
+              Фильтр очереди
+              <select id="queueFilter">
+                <option value="all">Все</option>
+                <option value="pending">Pending</option>
+                <option value="triage">Triage</option>
+                <option value="under_review">Under review</option>
+                <option value="escalated">Escalated</option>
+                <option value="approved">Approved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <div class="case-queue-list" id="caseQueueList"></div>
           </section>
 
           <section class="stack-block">
@@ -168,8 +196,13 @@
               <label class="field">narrative <input type="text" id="mapNarrative" placeholder="авто" /></label>
               <label class="field">asset_type <input type="text" id="mapAssetType" placeholder="авто" /></label>
             </div>
+            <label class="field">
+              XLSX-файл
+              <input type="file" id="xlsxFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            </label>
             <div class="btn-row">
               <button type="button" class="btn btn-primary" id="btnCsvPreview">Предпросмотр CSV</button>
+              <button type="button" class="btn" id="btnXlsxPreview">Предпросмотр XLSX</button>
               <button type="button" class="btn" id="btnAnalyzePreview">Анализировать предпросмотр</button>
             </div>
             <div class="wizard-preview">
@@ -262,9 +295,12 @@
                     Review status
                     <select id="reviewStatus">
                       <option value="pending">pending</option>
-                      <option value="analyst_confirmed">analyst_confirmed</option>
-                      <option value="analyst_rejected">analyst_rejected</option>
+                      <option value="triage">triage</option>
+                      <option value="under_review">under_review</option>
                       <option value="escalated">escalated</option>
+                      <option value="approved">approved</option>
+                      <option value="rejected">rejected</option>
+                      <option value="closed">closed</option>
                     </select>
                   </label>
                   <label class="field">
@@ -482,6 +518,18 @@
             <pre class="pre-wrap small compact-pre" id="telemetryPanel"></pre>
           </section>
 
+          <section class="summary-card" id="governanceAuditPanel">
+            <div class="minihead">Governance &amp; audit timeline</div>
+            <pre class="pre-wrap small compact-pre" id="governanceSummary"></pre>
+            <pre class="pre-wrap small compact-pre" id="auditTimeline"></pre>
+            <pre class="pre-wrap small compact-pre" id="exportHistory"></pre>
+          </section>
+
+          <section class="summary-card">
+            <div class="minihead">Lifecycle timeline</div>
+            <div id="lifecycleTimeline" class="tx-timeline"></div>
+          </section>
+
           <section class="summary-card">
             <div class="minihead">Diagnostics</div>
             <div class="tabs" role="tablist">
@@ -511,6 +559,6 @@
       </aside>
     </main>
 
-    <script src="/static/console.js"></script>
+    <script src="/static/console.js?v=20260216"></script>
   </body>
 </html>

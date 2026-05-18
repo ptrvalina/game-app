@@ -10,20 +10,33 @@ from contextlib import suppress
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 
 from app.deps import get_engine
+from app.models.operations import WebhookIngestRequest
 from app.models.schemas import (
     AnalyzeRequest,
     AnalyzeResponse,
     CaseExportArtifact,
     CaseExportRequest,
+    CaseQueueSummaryRequest,
+    CaseWorkflowRequest,
     CsvIngestResponse,
     Jurisdiction,
     Mode,
     ReplayResponse,
     SarExportFormat,
+    XlsxIngestResponse,
 )
+from app.models.operations import DbImportPreviewRequest, ScheduledImportPreviewRequest
 from app.services.case_export import CaseExportService
 from app.services.csv_ingest import CsvIngestService
+from app.services.db_connector import DbConnectorService
 from app.services.replay import ReplayService
+from app.services.scheduled_import import ScheduledImportService
+from app.services.webhook_ingest import WebhookIngestService
+from app.services.workflow import apply_workflow_action, queue_summary
+from app.services.xlsx_ingest import XlsxIngestService
+from app.services.rbac import RbacDenied, assert_export, parse_role
+from app.services.audit_log import append_audit_event
+from app.models.operations import ExportAccessLogEntry, WorkflowAction, AmberRole, CaseQueueStatus, DispositionCode
 from app.xai.engine import XAIEngine
 
 logger = logging.getLogger(__name__)
@@ -240,3 +253,131 @@ async def replay_bundle_v1(
         if out.drift_detected:
             telemetry.incr("replay_drift_total")
     return out
+
+
+def _role(request: Request) -> AmberRole:
+    return parse_role(request.headers.get("x-amber-role") or request.headers.get("X-Amber-Role"))
+
+
+def _log_export(
+    analysis: AnalyzeResponse,
+    *,
+    export_type: str,
+    role: AmberRole,
+    actor_id: str | None,
+    digest: str | None,
+) -> None:
+    from datetime import datetime, timezone
+
+    analysis.meta.export_access_log.append(
+        ExportAccessLogEntry(
+            export_type=export_type,
+            actor_role=role,
+            actor_id=actor_id,
+            occurred_at=datetime.now(timezone.utc),
+            artifact_digest=digest,
+        )
+    )
+    append_audit_event(
+        analysis.meta.audit_events,
+        event_type="exported",
+        actor_role=role,
+        actor_id=actor_id,
+        details={"export_type": export_type, "digest": digest},
+    )
+
+
+@router.post(
+    "/case/workflow",
+    response_model=AnalyzeResponse,
+    summary="Deterministic case workflow mutation",
+)
+async def case_workflow_v1(request: Request, body: CaseWorkflowRequest) -> AnalyzeResponse:
+    role = _role(request)
+    actor_role: AmberRole = body.actor_role if body.actor_role in {"analyst", "reviewer", "supervisor", "auditor", "readonly"} else role  # type: ignore[assignment]
+    try:
+        return apply_workflow_action(
+            source=body.source_request,
+            analysis=body.analysis,
+            action=body.action,  # type: ignore[arg-type]
+            actor_role=actor_role,
+            actor_id=body.actor_id,
+            assignee=body.assignee,
+            review_status=body.review_status,  # type: ignore[arg-type]
+            disposition_code=body.disposition_code,  # type: ignore[arg-type]
+            escalation_reason=body.escalation_reason,
+            review_notes=body.review_notes,
+        )
+    except RbacDenied as exc:
+        append_audit_event(
+            body.analysis.meta.audit_events,
+            event_type="access_denied",
+            actor_role=role,
+            actor_id=body.actor_id,
+            details={"action": body.action, "reason": exc.message},
+        )
+        raise HTTPException(status_code=403, detail=exc.message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/case/queue/summary", summary="Queue counters from client-side snapshots")
+async def case_queue_summary_v1(body: CaseQueueSummaryRequest) -> dict:
+    return queue_summary(body.cases)
+
+
+@router.post("/ingest/xlsx", response_model=XlsxIngestResponse, summary="XLSX onboarding ingest")
+async def ingest_xlsx_v1(
+    request: Request,
+    file: UploadFile = File(...),
+    mode: Mode = Form(...),
+    jurisdiction: Jurisdiction = Form(...),
+    focus_last_n: int = Form(12),
+    sheet_name: str | None = Form(default=None),
+    column_overrides_json: str | None = Form(default=None),
+    imported_by: str | None = Form(default=None),
+) -> XlsxIngestResponse:
+    settings = request.app.state.settings
+    content = await file.read()
+    if len(content) > settings.max_csv_bytes:
+        raise HTTPException(status_code=413, detail="XLSX exceeds allowed size")
+    overrides = None
+    if column_overrides_json:
+        overrides = json.loads(column_overrides_json)
+    service = XlsxIngestService(settings)
+    try:
+        return service.ingest_bytes(
+            content=content,
+            filename=file.filename,
+            mode=mode,
+            jurisdiction=jurisdiction,
+            focus_last_n=focus_last_n,
+            sheet_name=sheet_name,
+            column_overrides=overrides,
+            imported_by=imported_by,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/ingest/webhook", response_model=CsvIngestResponse, summary="Webhook JSON ingest")
+async def ingest_webhook_v1(request: Request, body: WebhookIngestRequest) -> CsvIngestResponse:
+    service = WebhookIngestService(request.app.state.settings)
+    try:
+        return service.ingest(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/ingest/db/preview", response_model=CsvIngestResponse, summary="Read-only DB import preview")
+async def ingest_db_preview_v1(request: Request, body: DbImportPreviewRequest) -> CsvIngestResponse:
+    service = DbConnectorService(request.app.state.settings)
+    try:
+        return service.preview_import(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/imports/schedule/preview", summary="Scheduled import metadata preview")
+async def schedule_import_preview_v1(request: Request, body: ScheduledImportPreviewRequest) -> dict:
+    return ScheduledImportService().preview_schedule(body).model_dump(mode="json")
